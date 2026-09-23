@@ -1,0 +1,6 @@
+{
+  "name": "Jarvis",
+  "description": "AI personal assistant with voice commands, speech synthesis, task automation, and a cybernetic Iron Man HUD.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

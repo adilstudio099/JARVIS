@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Outer Arc Reactor Ring -->
+    <path
+        android:pathData="M54,28 A26,26 0 1,1 53.9,28 Z"
+        android:strokeWidth="3.2"
+        android:strokeColor="#00E5FF"
+        android:fillColor="#00000000" />
+    
+    <!-- Secondary Dashed Segment Ring -->
+    <path
+        android:pathData="M54,34 A20,20 0 1,1 53.9,34 Z"
+        android:strokeWidth="1.8"
+        android:strokeColor="#38BDF8"
+        android:fillColor="#00000000" />
+
+    <!-- Reactor Coils (8 Radial Segments) -->
+    <path
+        android:pathData="M54,26 L54,34 M54,74 L54,82 M26,54 L34,54 M74,54 L82,54 M34.2,34.2 L39.8,39.8 M68.2,68.2 L73.8,73.8 M73.8,34.2 L68.2,39.8 M39.8,68.2 L34.2,73.8"
+        android:strokeWidth="3.0"
+        android:strokeColor="#00F0FF" />
+
+    <!-- Inner Core Ring -->
+    <path
+        android:pathData="M54,42 A12,12 0 1,1 53.9,42 Z"
+        android:strokeWidth="2.5"
+        android:strokeColor="#7DD3FC"
+        android:fillColor="#1500E5FF" />
+
+    <!-- Central Glowing Core -->
+    <path
+        android:pathData="M54,48 A6,6 0 1,1 53.9,48 Z"
+        android:fillColor="#E0F2FE" />
+</vector>
