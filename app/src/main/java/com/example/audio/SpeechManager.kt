@@ -99,7 +99,9 @@ class SpeechManager(private val context: Context) {
 
             val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
                 putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-                putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault())
+                putExtra(RecognizerIntent.EXTRA_LANGUAGE, "ur-PK")
+                putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, "ur-PK")
+                putExtra("android.speech.extra.EXTRA_ADDITIONAL_LANGUAGES", arrayOf("ur-PK", "en-US", "ur"))
                 putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
                 putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
             }
@@ -188,6 +190,20 @@ class SpeechManager(private val context: Context) {
         stopListening()
         if (isTtsReady && textToSpeech != null) {
             val cleanText = text.replace(Regex("[*#`_~]"), "") // clean markdown symbols for speech
+            val isUrdu = cleanText.any { it in '\u0600'..'\u06FF' }
+            try {
+                if (isUrdu) {
+                    val urduLocale = Locale.forLanguageTag("ur-PK")
+                    val res = textToSpeech?.setLanguage(urduLocale)
+                    if (res == TextToSpeech.LANG_MISSING_DATA || res == TextToSpeech.LANG_NOT_SUPPORTED) {
+                        textToSpeech?.setLanguage(Locale.forLanguageTag("ur"))
+                    }
+                } else {
+                    textToSpeech?.setLanguage(Locale.US)
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error setting TTS language", e)
+            }
             textToSpeech?.speak(cleanText, TextToSpeech.QUEUE_FLUSH, null, "jarvis_utterance_${System.currentTimeMillis()}")
         }
     }

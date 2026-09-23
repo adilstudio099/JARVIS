@@ -82,3 +82,36 @@ interface ReminderDao {
     @Query("UPDATE reminders SET isCompleted = :completed WHERE id = :id")
     suspend fun setCompleted(id: Long, completed: Boolean)
 }
+
+@Dao
+interface DirectiveDao {
+    @Query("SELECT * FROM directive_items ORDER BY isCompleted ASC, timestamp DESC")
+    fun getAllItems(): Flow<List<DirectiveItemEntity>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertItem(item: DirectiveItemEntity): Long
+
+    @Update
+    suspend fun updateItem(item: DirectiveItemEntity)
+
+    @Delete
+    suspend fun deleteItem(item: DirectiveItemEntity)
+
+    @Query("DELETE FROM directive_items WHERE id = :id")
+    suspend fun deleteById(id: Long)
+
+    @Query("UPDATE directive_items SET isCompleted = :completed WHERE id = :id")
+    suspend fun setCompleted(id: Long, completed: Boolean)
+
+    @Query("SELECT * FROM directive_items WHERE title LIKE '%' || :query || '%' OR content LIKE '%' || :query || '%' OR type LIKE '%' || :query || '%' ORDER BY timestamp DESC")
+    suspend fun searchItems(query: String): List<DirectiveItemEntity>
+
+    @Query("SELECT * FROM directive_items WHERE type = :type ORDER BY timestamp DESC")
+    fun getItemsByType(type: String): Flow<List<DirectiveItemEntity>>
+
+    @Query("SELECT * FROM directive_items WHERE (:type = '' OR type = :type) ORDER BY timestamp DESC")
+    suspend fun getDirectivesByType(type: String): List<DirectiveItemEntity>
+
+    @Query("SELECT * FROM directive_items ORDER BY timestamp DESC LIMIT :limit")
+    suspend fun getRecentItems(limit: Int): List<DirectiveItemEntity>
+}

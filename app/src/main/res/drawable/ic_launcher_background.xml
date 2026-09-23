@@ -5,30 +5,29 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
+    <!-- Soft light gradient background (light blue to pure white) for modern adaptive icon -->
     <path
         android:pathData="M0,0h108v108h-108z">
         <aapt:attr name="android:fillColor">
             <gradient
-                android:angle="315"
-                android:endColor="#050811"
-                android:startColor="#0D1B2A"
+                android:angle="135"
+                android:startColor="#F0F9FF"
+                android:centerColor="#E0F2FE"
+                android:endColor="#BAE6FD"
                 android:type="linear" />
         </aapt:attr>
     </path>
-    <!-- Subtle circular radar HUD rings in background -->
+    <!-- Subtle radial soft glow in the center-top -->
     <path
-        android:pathData="M54,14 A40,40 0 1,1 53.9,14 Z"
-        android:strokeWidth="0.8"
-        android:strokeColor="#1A00F0FF"
-        android:fillColor="#00000000" />
-    <path
-        android:pathData="M54,24 A30,30 0 1,1 53.9,24 Z"
-        android:strokeWidth="0.8"
-        android:strokeColor="#2600E5FF"
-        android:fillColor="#00000000" />
-    <!-- Crosshairs -->
-    <path
-        android:pathData="M54,6 L54,102 M6,54 L102,54"
-        android:strokeWidth="0.5"
-        android:strokeColor="#1500F0FF" />
+        android:pathData="M54,54m-42,0a42,42 0 1,1 84,0a42,42 0 1,1 -84,0">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:centerX="54"
+                android:centerY="46"
+                android:gradientRadius="44"
+                android:startColor="#66FFFFFF"
+                android:endColor="#00FFFFFF"
+                android:type="radial" />
+        </aapt:attr>
+    </path>
 </vector>

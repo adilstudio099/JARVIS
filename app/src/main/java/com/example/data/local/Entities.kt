@@ -44,3 +44,15 @@ data class ReminderEntity(
     val isCompleted: Boolean = false,
     val timestamp: Long = System.currentTimeMillis()
 )
+
+@Entity(tableName = "directive_items")
+data class DirectiveItemEntity(
+    @PrimaryKey(autoGenerate = true)
+    val id: Long = 0,
+    val type: String = "general", // "task", "note", "reminder", "memory", "fact", "bookmark", "list", etc.
+    val title: String,
+    val content: String,
+    val tags: String = "",
+    val isCompleted: Boolean = false,
+    val timestamp: Long = System.currentTimeMillis()
+)

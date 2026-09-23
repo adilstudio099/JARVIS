@@ -10,9 +10,10 @@ import androidx.room.RoomDatabase
         ChatMessageEntity::class,
         NoteEntity::class,
         TodoEntity::class,
-        ReminderEntity::class
+        ReminderEntity::class,
+        DirectiveItemEntity::class
     ],
-    version = 1,
+    version = 2,
     exportSchema = false
 )
 abstract class JarvisDatabase : RoomDatabase() {
@@ -20,6 +21,7 @@ abstract class JarvisDatabase : RoomDatabase() {
     abstract fun noteDao(): NoteDao
     abstract fun todoDao(): TodoDao
     abstract fun reminderDao(): ReminderDao
+    abstract fun directiveDao(): DirectiveDao
 
     companion object {
         @Volatile

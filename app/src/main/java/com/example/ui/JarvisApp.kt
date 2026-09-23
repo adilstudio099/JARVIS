@@ -35,13 +35,15 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.ui.components.ContinuousHudScanlinesOverlay
 import com.example.ui.screens.ChatScreen
 import com.example.ui.screens.HistoryScreen
 import com.example.ui.screens.SettingsScreen
 import com.example.ui.screens.TaskCenterScreen
-import com.example.ui.theme.JarvisBorderCyan
-import com.example.ui.theme.JarvisCyan
-import com.example.ui.theme.JarvisCyanBright
+import com.example.ui.theme.JarvisBorderGreen
+import com.example.ui.theme.JarvisGreen
+import com.example.ui.theme.JarvisGreenBright
+import com.example.ui.theme.JarvisGreenGlow
 import com.example.ui.theme.JarvisSpaceBlack
 import com.example.ui.theme.JarvisSurfaceDark
 import com.example.ui.theme.JarvisTextMuted
@@ -57,7 +59,7 @@ fun JarvisApp(
 
     val navItems = listOf(
         NavItem("CHAT", Icons.Default.ChatBubble, "nav_chat"),
-        NavItem("TASKS", Icons.AutoMirrored.Filled.Assignment, "nav_tasks"),
+        NavItem("VAULT", Icons.AutoMirrored.Filled.Assignment, "nav_tasks"),
         NavItem("HISTORY", Icons.Default.History, "nav_history"),
         NavItem("SYSTEM", Icons.Default.Settings, "nav_settings")
     )
@@ -74,7 +76,7 @@ fun JarvisApp(
                     .border(
                         BorderStroke(
                             1.dp,
-                            Brush.verticalGradient(listOf(JarvisBorderCyan, Color.Transparent))
+                            Brush.verticalGradient(listOf(JarvisBorderGreen, Color.Transparent))
                         )
                     )
             ) {
@@ -88,13 +90,13 @@ fun JarvisApp(
                                 imageVector = item.icon,
                                 contentDescription = item.title,
                                 modifier = Modifier.size(20.dp),
-                                tint = if (isSelected) JarvisCyanBright else JarvisTextMuted
+                                tint = if (isSelected) JarvisGreenGlow else JarvisTextMuted
                             )
                         },
                         label = {
                             Text(
                                 text = item.title,
-                                color = if (isSelected) JarvisCyanBright else JarvisTextMuted,
+                                color = if (isSelected) JarvisGreenGlow else JarvisTextMuted,
                                 fontSize = 10.sp,
                                 fontFamily = FontFamily.Monospace,
                                 fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
@@ -102,9 +104,9 @@ fun JarvisApp(
                             )
                         },
                         colors = NavigationBarItemDefaults.colors(
-                            selectedIconColor = JarvisCyanBright,
+                            selectedIconColor = JarvisGreenGlow,
                             unselectedIconColor = JarvisTextMuted,
-                            indicatorColor = JarvisCyan.copy(alpha = 0.15f)
+                            indicatorColor = JarvisGreen.copy(alpha = 0.15f)
                         ),
                         modifier = Modifier.testTag(item.tag)
                     )
@@ -118,7 +120,10 @@ fun JarvisApp(
                 .padding(innerPadding)
         ) {
             when (selectedTab) {
-                0 -> ChatScreen(viewModel = viewModel)
+                0 -> ChatScreen(
+                    viewModel = viewModel,
+                    onNavigateToSettings = { selectedTab = 3 }
+                )
                 1 -> TaskCenterScreen(viewModel = viewModel)
                 2 -> HistoryScreen(
                     viewModel = viewModel,
@@ -126,6 +131,18 @@ fun JarvisApp(
                 )
                 3 -> SettingsScreen(viewModel = viewModel)
             }
+
+            // Continuous Iron Man HUD scan-line and laser sweep overlay across main Compose screen
+            ContinuousHudScanlinesOverlay(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .testTag("continuous_hud_scanlines_overlay"),
+                scanColor = JarvisGreen,
+                beamColor = JarvisGreenGlow,
+                scanDurationMillis = 5200,
+                lineSpacing = 4.dp,
+                showCornerBrackets = true
+            )
         }
     }
 }

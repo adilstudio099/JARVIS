@@ -1,7 +1,10 @@
 package com.example.ui.screens
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
+import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
@@ -35,9 +38,13 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
-import androidx.compose.material.icons.filled.Mic
-import androidx.compose.material.icons.filled.MicOff
+import androidx.compose.material.icons.filled.Key
+import androidx.compose.material.icons.filled.Radio
 import androidx.compose.material.icons.filled.Stop
+import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -47,7 +54,9 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -59,14 +68,17 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.audio.LiveSessionState
 import com.example.data.local.ChatMessageEntity
 import com.example.ui.JarvisViewModel
 import com.example.ui.components.ArcReactor
@@ -74,28 +86,30 @@ import com.example.ui.components.CyberDecryptedText
 import com.example.ui.components.CyberGlowingMicButton
 import com.example.ui.components.HudCard
 import com.example.ui.components.HudScanOverlay
+import com.example.ui.components.HudTechnicalGridBackground
 import com.example.ui.components.HudWaveform
 import com.example.ui.components.SystemTelemetryHeader
-import com.example.ui.components.ToolBadge
 import com.example.ui.components.cyberCornerReticles
-import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
-import androidx.compose.ui.draw.scale
-import com.example.ui.theme.JarvisBlue
 import com.example.ui.theme.JarvisBorderCyan
+import com.example.ui.theme.JarvisBorderGreen
 import com.example.ui.theme.JarvisBorderGlow
 import com.example.ui.theme.JarvisCyan
 import com.example.ui.theme.JarvisCyanBright
+import com.example.ui.theme.JarvisCyanDark
+import com.example.ui.theme.JarvisCyanDeep
+import com.example.ui.theme.JarvisCyanGlow
+import com.example.ui.theme.JarvisGreen
+import com.example.ui.theme.JarvisGreenBright
+import com.example.ui.theme.JarvisGreenDark
+import com.example.ui.theme.JarvisGreenDeep
+import com.example.ui.theme.JarvisGreenGlow
 import com.example.ui.theme.JarvisOrange
 import com.example.ui.theme.JarvisRed
 import com.example.ui.theme.JarvisSpaceBlack
 import com.example.ui.theme.JarvisSurfaceCard
 import com.example.ui.theme.JarvisSurfaceDark
 import com.example.ui.theme.JarvisSurfaceElevated
+import com.example.ui.theme.JarvisTextGlow
 import com.example.ui.theme.JarvisTextMuted
 import com.example.ui.theme.JarvisTextPrimary
 import com.example.ui.theme.JarvisTextSecondary
@@ -103,52 +117,81 @@ import com.example.ui.theme.JarvisTextSecondary
 @Composable
 fun ChatScreen(
     viewModel: JarvisViewModel,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onNavigateToSettings: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val messages by viewModel.messages.collectAsStateWithLifecycle()
-    val isListening by viewModel.isListening.collectAsStateWithLifecycle()
-    val isSpeaking by viewModel.isSpeaking.collectAsStateWithLifecycle()
+    val isRecording by viewModel.isRecording.collectAsStateWithLifecycle()
+    val isPlayingAudio by viewModel.isPlayingAudio.collectAsStateWithLifecycle()
     val isProcessing by viewModel.isProcessing.collectAsStateWithLifecycle()
     val rmsLevel by viewModel.rmsLevel.collectAsStateWithLifecycle()
-    val liveTranscript by viewModel.liveTranscript.collectAsStateWithLifecycle()
     val inputText by viewModel.inputText.collectAsStateWithLifecycle()
     val statusMessage by viewModel.statusMessage.collectAsStateWithLifecycle()
     val speechError by viewModel.speechError.collectAsStateWithLifecycle()
     val userError by viewModel.userError.collectAsStateWithLifecycle()
+    val apiKeyMissingAlert by viewModel.apiKeyMissingAlert.collectAsStateWithLifecycle()
+
+    // Gemini Live Bidirectional Session States
+    val liveSessionState by viewModel.liveSessionState.collectAsStateWithLifecycle()
+    val liveTranscript by viewModel.liveTranscript.collectAsStateWithLifecycle()
+    val liveRmsLevel by viewModel.liveRmsLevel.collectAsStateWithLifecycle()
+    val liveSessionError by viewModel.liveSessionError.collectAsStateWithLifecycle()
+
+    val isLiveActive = liveSessionState != LiveSessionState.DISCONNECTED && liveSessionState != LiveSessionState.ERROR
+    val isLiveListening = liveSessionState == LiveSessionState.LISTENING
+    val isLiveSpeaking = liveSessionState == LiveSessionState.SPEAKING
+    val isLiveThinking = liveSessionState == LiveSessionState.THINKING || liveSessionState == LiveSessionState.CONNECTING
+
+    val effectiveIsListening = if (isLiveActive) isLiveListening else isRecording
+    val effectiveIsSpeaking = if (isLiveActive) isLiveSpeaking else isPlayingAudio
+    val effectiveIsProcessing = if (isLiveActive) isLiveThinking else isProcessing
+    val effectiveRmsLevel = if (isLiveActive) liveRmsLevel else rmsLevel
 
     val snackbarHostState = remember { SnackbarHostState() }
     val listState = rememberLazyListState()
 
-    // Permission launcher for microphone
-    var hasRecordPermission by remember {
-        mutableStateOf(
-            ContextCompat.checkSelfPermission(
-                context,
-                Manifest.permission.RECORD_AUDIO
-            ) == PackageManager.PERMISSION_GRANTED
-        )
-    }
+    var showPermissionRationaleDialog by remember { mutableStateOf(false) }
 
+    // Runtime Permission Launcher for Microphone
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
     ) { isGranted ->
-        hasRecordPermission = isGranted
         if (isGranted) {
-            viewModel.toggleVoiceListening()
+            viewModel.toggleLiveVoiceSession()
+        } else {
+            viewModel.onRecordPermissionDenied()
+            showPermissionRationaleDialog = true
         }
     }
 
-    // Scroll to bottom when new messages arrive
-    LaunchedEffect(messages.size, liveTranscript) {
+    fun handleLiveVoiceToggle() {
+        if (isLiveActive) {
+            viewModel.stopLiveVoiceSession()
+        } else {
+            val hasPermission = ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.RECORD_AUDIO
+            ) == PackageManager.PERMISSION_GRANTED
+
+            if (hasPermission) {
+                viewModel.toggleLiveVoiceSession()
+            } else {
+                permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+            }
+        }
+    }
+
+    // Scroll to bottom on new message
+    LaunchedEffect(messages.size) {
         if (messages.isNotEmpty()) {
             listState.animateScrollToItem(messages.size - 1)
         }
     }
 
-    // Show error in snackbar
-    LaunchedEffect(speechError, userError) {
-        val error = speechError ?: userError
+    // Show error snackbar
+    LaunchedEffect(speechError, userError, liveSessionError) {
+        val error = userError ?: liveSessionError ?: speechError
         if (error != null) {
             snackbarHostState.showSnackbar(error)
             viewModel.clearError()
@@ -156,36 +199,25 @@ fun ChatScreen(
     }
 
     val quickCommands = listOf(
-        "🌤 Weather in London",
-        "⏰ Remind me to hydrate in 15 mins",
-        "✅ Add review suit diagnostic to todo",
-        "📝 Note: Arc reactor efficiency up 12%",
-        "🔢 Calculate 45 * 128",
-        "⏱ Current time and date"
+        "🌤 اسلام آباد میں موسم کا حال",
+        "⚡ آج کی اہم ترین تازہ خبریں",
+        "📞 03001234567 پر کال ملاؤ",
+        "⏰ صبح 7 بجے کا الارم لگاؤ",
+        "🗺 لاہور مال روڈ کا نقشہ دکھاؤ",
+        "📝 کلائنٹ میٹنگ کا ایجنڈا محفوظ کرو",
+        "🔢 15% discount on 12500"
     )
 
-    Box(
+    HudTechnicalGridBackground(
         modifier = modifier
             .fillMaxSize()
-            .background(JarvisSpaceBlack)
             .imePadding()
     ) {
-        // Futuristic Holographic Visor Scan Overlay
+        // High-Tech Cyan Laser Scanline Overlay
         HudScanOverlay(
             modifier = Modifier.fillMaxSize(),
-            laserColor = JarvisCyan,
+            laserColor = JarvisCyanGlow,
             scanDurationMillis = 4600
-        )
-
-        val sendPulseTransition = rememberInfiniteTransition(label = "send_pulse_trans")
-        val sendScale by sendPulseTransition.animateFloat(
-            initialValue = 1f,
-            targetValue = 1.08f,
-            animationSpec = infiniteRepeatable(
-                animation = tween(750, easing = FastOutSlowInEasing),
-                repeatMode = RepeatMode.Reverse
-            ),
-            label = "send_button_pulse"
         )
 
         Column(
@@ -193,60 +225,196 @@ fun ChatScreen(
         ) {
             // HUD Telemetry Top Bar
             SystemTelemetryHeader(
-                statusText = statusMessage,
-                isOnline = !isProcessing
+                statusText = if (isLiveActive) {
+                    when (liveSessionState) {
+                        LiveSessionState.CONNECTING -> "LIVE // CONNECTING..."
+                        LiveSessionState.LISTENING -> "LIVE // LISTENING (URDU/ENG)"
+                        LiveSessionState.THINKING -> "LIVE // THINKING..."
+                        LiveSessionState.SPEAKING -> "LIVE // VOCAL TRANSMISSION"
+                        else -> "LIVE STREAM ACTIVE"
+                    }
+                } else statusMessage,
+                isOnline = !effectiveIsProcessing
             )
 
-            // Centered Arc Reactor Hero Visualizer
+            // API Key Missing Warning Banner
+            if (apiKeyMissingAlert) {
+                Surface(
+                    color = JarvisOrange.copy(alpha = 0.15f),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, JarvisOrange),
+                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp, vertical = 6.dp)
+                        .testTag("api_key_missing_banner")
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Warning,
+                                contentDescription = null,
+                                tint = JarvisOrange,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "⚠️ Gemini API Key درکار ہے۔ براہ کرم سیٹنگز میں چیک کریں۔",
+                                color = Color.White,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                        Button(
+                            onClick = onNavigateToSettings,
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = JarvisOrange,
+                                contentColor = JarvisSpaceBlack
+                            ),
+                            shape = RoundedCornerShape(6.dp),
+                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                            modifier = Modifier.height(32.dp)
+                        ) {
+                            Icon(Icons.Default.Key, contentDescription = null, modifier = Modifier.size(14.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("سیٹنگز", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            }
+
+            // Centered Arc Reactor Hero Visualizer (Iron Man Green HUD Arc Reactor)
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(vertical = 10.dp),
+                    .padding(vertical = 6.dp),
                 contentAlignment = Alignment.Center
             ) {
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
+                    // Arc Reactor with reactive pulse, radar cone and glowing coils
                     ArcReactor(
-                        size = 140.dp,
-                        isListening = isListening,
-                        isSpeaking = isSpeaking,
-                        isProcessing = isProcessing,
-                        rmsLevel = rmsLevel,
-                        onClick = {
-                            if (hasRecordPermission) {
-                                viewModel.toggleVoiceListening()
-                            } else {
-                                permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
-                            }
-                        }
+                        size = 132.dp,
+                        isListening = effectiveIsListening,
+                        isSpeaking = effectiveIsSpeaking,
+                        isProcessing = effectiveIsProcessing,
+                        rmsLevel = effectiveRmsLevel,
+                        onClick = { handleLiveVoiceToggle() }
                     )
 
                     Spacer(modifier = Modifier.height(6.dp))
 
+                    // Animated Voice Waveform & Dynamic Cyber Decrypted Status
                     Row(
-                        verticalAlignment = Alignment.CenterVertically
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(horizontal = 16.dp)
                     ) {
                         HudWaveform(
-                            isEmitting = isListening || isSpeaking || isProcessing,
-                            tint = if (isListening) JarvisCyanBright else if (isSpeaking) JarvisCyan else JarvisBlue
+                            isEmitting = isLiveActive || effectiveIsListening || effectiveIsSpeaking || effectiveIsProcessing,
+                            tint = if (effectiveIsListening) JarvisCyanGlow
+                            else if (effectiveIsSpeaking) JarvisCyanBright
+                            else if (effectiveIsProcessing) JarvisOrange
+                            else JarvisCyanDeep
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         CyberDecryptedText(
                             text = when {
-                                isListening -> "LISTENING // SPEAK NOW"
-                                isProcessing -> "SYNTHESIZING PROTOCOL..."
-                                isSpeaking -> "TRANSMITTING VOCAL AUDIO..."
-                                else -> "TAP TO ENGAGE VOICE DIRECTIVE"
+                                liveSessionState == LiveSessionState.CONNECTING -> "INITIALIZING GEMINI LIVE PROTOCOL..."
+                                liveSessionState == LiveSessionState.SPEAKING -> "TRANSMITTING LIVE VOCAL AUDIO..."
+                                liveSessionState == LiveSessionState.THINKING -> "PROCESSING INTENT // THINKING..."
+                                liveSessionState == LiveSessionState.LISTENING -> "LIVE LISTENING // SPEAK NATURALLY (بولیں)"
+                                isLiveActive -> "LIVE CONVERSATION OPEN (OPEN MIC)"
+                                effectiveIsListening -> "LISTENING // صوتی حکم وصول ہو رہا ہے"
+                                effectiveIsProcessing -> "SYNTHESIZING PROTOCOL..."
+                                effectiveIsSpeaking -> "TRANSMITTING VOCAL AUDIO..."
+                                else -> "TAP INSTRUMENT DIAL FOR LIVE VOICE"
                             },
-                            color = if (isListening) JarvisCyanBright else JarvisTextSecondary,
+                            color = if (isLiveActive) JarvisCyanGlow else JarvisTextSecondary,
                             style = androidx.compose.ui.text.TextStyle(
                                 fontSize = 11.sp,
                                 fontFamily = FontFamily.Monospace,
-                                fontWeight = FontWeight.SemiBold,
+                                fontWeight = FontWeight.Bold,
                                 letterSpacing = 0.5.sp
                             )
                         )
+                    }
+
+                    // Live Session Badge and Active Transcript HUD Display
+                    if (isLiveActive) {
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(JarvisCyanDeep.copy(alpha = 0.4f))
+                                .border(1.dp, JarvisBorderCyan, RoundedCornerShape(12.dp))
+                                .padding(horizontal = 10.dp, vertical = 3.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(8.dp)
+                                    .clip(CircleShape)
+                                    .background(JarvisCyanGlow)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "LIVE SCI-FI VOICE // GEMINI-3.5-FLASH",
+                                color = JarvisCyanGlow,
+                                fontSize = 9.sp,
+                                fontFamily = FontFamily.Monospace,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "TAP TO END",
+                                color = JarvisTextMuted,
+                                fontSize = 9.sp,
+                                fontFamily = FontFamily.Monospace,
+                                modifier = Modifier.clickable { viewModel.stopLiveVoiceSession() }
+                            )
+                        }
+
+                        // Live RTL Transcript Card
+                        if (liveTranscript.isNotBlank()) {
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Surface(
+                                modifier = Modifier
+                                    .fillMaxWidth(0.92f)
+                                    .testTag("live_transcript_card"),
+                                color = JarvisSurfaceCard.copy(alpha = 0.9f),
+                                shape = RoundedCornerShape(8.dp),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, JarvisBorderCyan)
+                            ) {
+                                Column(modifier = Modifier.padding(10.dp)) {
+                                    Text(
+                                        text = "LIVE SPEECH TRANSCRIPTION",
+                                        color = JarvisCyanBright,
+                                        fontSize = 9.sp,
+                                        fontFamily = FontFamily.Monospace,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
+                                        Text(
+                                            text = liveTranscript,
+                                            color = JarvisTextPrimary,
+                                            fontSize = 13.sp,
+                                            lineHeight = 20.sp,
+                                            fontWeight = FontWeight.Normal
+                                        )
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -261,11 +429,11 @@ fun ChatScreen(
                 items(quickCommands) { cmd ->
                     Box(
                         modifier = Modifier
-                            .testTag("quick_command_${cmd.take(10)}")
+                            .testTag("quick_command_${cmd.take(8)}")
                             .clip(RoundedCornerShape(16.dp))
                             .background(JarvisSurfaceCard)
-                            .border(0.8.dp, JarvisBorderCyan, RoundedCornerShape(16.dp))
-                            .cyberCornerReticles(bracketColor = JarvisCyan, bracketLength = 6.dp, strokeWidth = 1.dp, glowAlpha = 0.6f)
+                            .border(0.8.dp, JarvisBorderGreen, RoundedCornerShape(16.dp))
+                            .cyberCornerReticles(bracketColor = JarvisGreenGlow, bracketLength = 6.dp, strokeWidth = 1.dp, glowAlpha = 0.6f)
                             .clickable {
                                 viewModel.processUserPrompt(cmd.substringAfter(" "))
                             }
@@ -273,7 +441,7 @@ fun ChatScreen(
                     ) {
                         Text(
                             text = cmd,
-                            color = JarvisCyanBright,
+                            color = JarvisGreenBright,
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Medium
                         )
@@ -300,64 +468,27 @@ fun ChatScreen(
                     )
                 }
 
-                // Live Transcript Bubble (while user is actively speaking)
-                if (isListening && liveTranscript.isNotBlank()) {
-                    item {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.End
-                        ) {
-                            Surface(
-                                shape = RoundedCornerShape(14.dp),
-                                color = JarvisBlue.copy(alpha = 0.25f),
-                                border = androidx.compose.foundation.BorderStroke(1.dp, JarvisCyan.copy(alpha = 0.6f)),
-                                modifier = Modifier.widthIn(max = 300.dp)
-                            ) {
-                                Row(
-                                    modifier = Modifier.padding(12.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    CircularProgressIndicator(
-                                        modifier = Modifier.size(14.dp),
-                                        color = JarvisCyan,
-                                        strokeWidth = 2.dp
-                                    )
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text(
-                                        text = "$liveTranscript...",
-                                        color = JarvisTextPrimary,
-                                        fontSize = 14.sp,
-                                        fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-
                 // Processing Indicator
-                if (isProcessing) {
+                if (effectiveIsProcessing && !isLiveActive) {
                     item {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.Start
                         ) {
-                            HudCard(
-                                modifier = Modifier.widthIn(max = 280.dp)
-                            ) {
+                            HudCard(modifier = Modifier.widthIn(max = 280.dp)) {
                                 Row(
                                     modifier = Modifier.padding(12.dp),
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     CircularProgressIndicator(
                                         modifier = Modifier.size(16.dp),
-                                        color = JarvisCyan,
+                                        color = JarvisGreenGlow,
                                         strokeWidth = 2.dp
                                     )
                                     Spacer(modifier = Modifier.width(10.dp))
                                     Text(
-                                        text = "Querying Stark Quantum Core...",
-                                        color = JarvisCyanBright,
+                                        text = "پروسیسنگ جاری ہے (Querying Gemini)...",
+                                        color = JarvisGreenBright,
                                         fontSize = 12.sp,
                                         fontFamily = FontFamily.Monospace
                                     )
@@ -374,7 +505,7 @@ fun ChatScreen(
                 color = JarvisSurfaceDark,
                 border = androidx.compose.foundation.BorderStroke(
                     1.dp,
-                    Brush.verticalGradient(listOf(JarvisBorderCyan, Color.Transparent))
+                    Brush.verticalGradient(listOf(JarvisBorderGreen, Color.Transparent))
                 )
             ) {
                 Row(
@@ -383,31 +514,25 @@ fun ChatScreen(
                         .padding(horizontal = 12.dp, vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // Futuristic Cybernetic Voice Mic Button with concentric energy waves
+                    // Voice Mic Button (One tap starts/stops continuous live voice session)
                     CyberGlowingMicButton(
-                        isListening = isListening,
-                        isSpeaking = isSpeaking,
-                        rmsLevel = rmsLevel,
-                        onClick = {
-                            if (hasRecordPermission) {
-                                viewModel.toggleVoiceListening()
-                            } else {
-                                permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
-                            }
-                        }
+                        isListening = isLiveActive || effectiveIsListening,
+                        isSpeaking = effectiveIsSpeaking,
+                        rmsLevel = effectiveRmsLevel,
+                        onClick = { handleLiveVoiceToggle() }
                     )
 
                     Spacer(modifier = Modifier.width(8.dp))
 
-                    // Text Field
+                    // Typed Text Field (Keeps text input 100% available at all times)
                     OutlinedTextField(
                         value = inputText,
                         onValueChange = { viewModel.onInputTextChanged(it) },
                         placeholder = {
                             Text(
-                                text = "Enter command or speak...",
+                                text = "حکم لکھیں یا بولیں (Enter command)...",
                                 color = JarvisTextMuted,
-                                fontSize = 14.sp
+                                fontSize = 13.sp
                             )
                         },
                         modifier = Modifier
@@ -415,11 +540,11 @@ fun ChatScreen(
                             .testTag("chat_text_input"),
                         shape = RoundedCornerShape(24.dp),
                         colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = JarvisCyan,
-                            unfocusedBorderColor = JarvisBorderCyan,
+                            focusedBorderColor = JarvisGreenGlow,
+                            unfocusedBorderColor = JarvisBorderGreen,
                             focusedTextColor = JarvisTextPrimary,
                             unfocusedTextColor = JarvisTextPrimary,
-                            cursorColor = JarvisCyan,
+                            cursorColor = JarvisGreenGlow,
                             focusedContainerColor = JarvisSurfaceElevated,
                             unfocusedContainerColor = JarvisSurfaceCard
                         ),
@@ -430,10 +555,9 @@ fun ChatScreen(
 
                     Spacer(modifier = Modifier.width(8.dp))
 
-                    // Stop Speaking Button (when TTS is active) OR Send Button
-                    if (isSpeaking) {
+                    if (effectiveIsSpeaking || isLiveActive) {
                         IconButton(
-                            onClick = { viewModel.stopSpeaking() },
+                            onClick = { viewModel.stopAudioPlayback() },
                             modifier = Modifier
                                 .testTag("stop_speaking_button")
                                 .size(44.dp)
@@ -443,7 +567,7 @@ fun ChatScreen(
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Stop,
-                                contentDescription = "Stop Speech",
+                                contentDescription = "Stop Audio",
                                 tint = JarvisOrange
                             )
                         }
@@ -453,12 +577,11 @@ fun ChatScreen(
                             modifier = Modifier
                                 .testTag("send_button")
                                 .size(44.dp)
-                                .scale(if (inputText.isNotBlank()) sendScale else 1f)
                                 .clip(CircleShape)
-                                .background(if (inputText.isNotBlank()) JarvisCyan else JarvisSurfaceElevated)
+                                .background(if (inputText.isNotBlank()) JarvisGreenGlow else JarvisSurfaceElevated)
                                 .border(
                                     if (inputText.isNotBlank()) 1.5.dp else 1.dp,
-                                    if (inputText.isNotBlank()) Color.White else JarvisBorderCyan,
+                                    if (inputText.isNotBlank()) Color.White else JarvisBorderGreen,
                                     CircleShape
                                 ),
                             enabled = inputText.isNotBlank()
@@ -476,96 +599,142 @@ fun ChatScreen(
 
         SnackbarHost(
             hostState = snackbarHostState,
-            modifier = Modifier.align(Alignment.BottomCenter)
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = 80.dp)
         )
+
+        // Permission Rationale Dialog
+        if (showPermissionRationaleDialog) {
+            AlertDialog(
+                onDismissRequest = { showPermissionRationaleDialog = false },
+                title = {
+                    Text(
+                        text = "مائیکروفون کی اجازت درکار ہے",
+                        color = JarvisGreenBright,
+                        fontWeight = FontWeight.Bold
+                    )
+                },
+                text = {
+                    Text(
+                        text = "J.A.R.V.I.S. کو لائیو صوتی گفتگو اور احکامات سننے کے لیے مائیکروفون کی اجازت درکار ہے۔ براہ کرم سیٹنگز میں جا کر اجازت فراہم کریں۔\n\n(Microphone access is required for real-time live speech conversation)",
+                        color = JarvisTextPrimary
+                    )
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            showPermissionRationaleDialog = false
+                            val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                                data = Uri.fromParts("package", context.packageName, null)
+                                flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                            }
+                            context.startActivity(intent)
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = JarvisGreenGlow, contentColor = JarvisSpaceBlack)
+                    ) {
+                        Text("ایپ سیٹنگز کھولیں", fontWeight = FontWeight.Bold)
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showPermissionRationaleDialog = false }) {
+                        Text("منسوخ کریں", color = JarvisTextMuted)
+                    }
+                },
+                containerColor = JarvisSurfaceDark,
+                shape = RoundedCornerShape(12.dp)
+            )
+        }
     }
 }
 
 @Composable
 fun ChatBubble(
     message: ChatMessageEntity,
-    onReplayAudio: () -> Unit
+    onReplayAudio: () -> Unit = {}
 ) {
     val isUser = message.role == "user"
+    val isUrdu = message.content.any {
+        it in '\u0600'..'\u06FF' || it in '\u0750'..'\u077F' || it in '\uFB50'..'\uFDFF' || it in '\uFE70'..'\uFEFF'
+    }
 
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .testTag(if (isUser) "user_message_${message.id}" else "jarvis_message_${message.id}"),
+        modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = if (isUser) Arrangement.End else Arrangement.Start
     ) {
-        if (isUser) {
-            Surface(
-                shape = RoundedCornerShape(16.dp).copy(bottomEnd = androidx.compose.foundation.shape.CornerSize(2.dp)),
-                color = JarvisSurfaceElevated,
-                border = androidx.compose.foundation.BorderStroke(1.dp, JarvisBorderCyan),
-                modifier = Modifier.widthIn(max = 300.dp)
-            ) {
-                Text(
-                    text = message.content,
-                    color = JarvisTextPrimary,
-                    fontSize = 14.sp,
-                    modifier = Modifier.padding(12.dp)
-                )
-            }
-        } else {
-            HudCard(
-                modifier = Modifier.widthIn(max = 320.dp)
-            ) {
-                Column(
-                    modifier = Modifier.padding(12.dp)
+        Surface(
+            shape = RoundedCornerShape(
+                topStart = 16.dp,
+                topEnd = 16.dp,
+                bottomStart = if (isUser) 16.dp else 4.dp,
+                bottomEnd = if (isUser) 4.dp else 16.dp
+            ),
+            color = if (isUser) JarvisGreenDeep.copy(alpha = 0.35f) else JarvisSurfaceCard,
+            border = androidx.compose.foundation.BorderStroke(
+                1.dp,
+                if (isUser) JarvisGreenGlow.copy(alpha = 0.6f) else JarvisBorderGreen
+            ),
+            modifier = Modifier.widthIn(max = 320.dp)
+        ) {
+            Column(modifier = Modifier.padding(12.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // Header with Jarvis tag and Tool Badge
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Box(
-                                modifier = Modifier
-                                    .size(6.dp)
-                                    .clip(CircleShape)
-                                    .background(JarvisCyan)
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(
-                                text = "J.A.R.V.I.S.",
-                                color = JarvisCyanBright,
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Bold,
-                                fontFamily = FontFamily.Monospace,
-                                letterSpacing = 1.sp
-                            )
-                        }
+                    Text(
+                        text = if (isUser) "OPERATOR" else "J.A.R.V.I.S.",
+                        color = if (isUser) JarvisGreenBright else JarvisGreenGlow,
+                        fontSize = 10.sp,
+                        fontFamily = FontFamily.Monospace,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 0.5.sp
+                    )
 
+                    if (!isUser) {
                         IconButton(
                             onClick = onReplayAudio,
-                            modifier = Modifier.size(24.dp)
+                            modifier = Modifier.size(20.dp)
                         ) {
                             Icon(
                                 imageVector = Icons.AutoMirrored.Filled.VolumeUp,
-                                contentDescription = "Read Aloud",
-                                tint = JarvisCyan,
-                                modifier = Modifier.size(16.dp)
+                                contentDescription = "Replay audio",
+                                tint = JarvisGreenGlow,
+                                modifier = Modifier.size(14.dp)
                             )
                         }
                     }
+                }
 
-                    // Tool executed badge if any
-                    message.toolName?.let { tool ->
-                        Spacer(modifier = Modifier.height(6.dp))
-                        ToolBadge(toolName = tool)
-                    }
+                Spacer(modifier = Modifier.height(4.dp))
 
-                    Spacer(modifier = Modifier.height(6.dp))
-
+                CompositionLocalProvider(
+                    LocalLayoutDirection provides if (isUrdu) LayoutDirection.Rtl else LayoutDirection.Ltr
+                ) {
                     Text(
                         text = message.content,
                         color = JarvisTextPrimary,
                         fontSize = 14.sp,
-                        lineHeight = 20.sp
+                        lineHeight = 22.sp,
+                        fontWeight = FontWeight.Normal
                     )
+                }
+
+                if (message.toolName != null) {
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Surface(
+                        color = JarvisGreen.copy(alpha = 0.15f),
+                        shape = RoundedCornerShape(4.dp),
+                        border = androidx.compose.foundation.BorderStroke(0.5.dp, JarvisGreenGlow)
+                    ) {
+                        Text(
+                            text = "⚡ Directive Executed: ${message.toolName}",
+                            color = JarvisGreenBright,
+                            fontSize = 10.sp,
+                            fontFamily = FontFamily.Monospace,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                        )
+                    }
                 }
             }
         }

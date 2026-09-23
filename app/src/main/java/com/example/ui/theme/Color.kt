@@ -2,30 +2,49 @@ package com.example.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-// Jarvis Cyan & Blue Palette
-val JarvisCyan = Color(0xFF00F0FF)
-val JarvisCyanBright = Color(0xFF67E8F9)
-val JarvisCyanDark = Color(0xFF0891B2)
-val JarvisBlue = Color(0xFF0077FE)
-val JarvisBlueDark = Color(0xFF0C4A6E)
-val JarvisNeonTeal = Color(0xFF14B8A6)
+// =========================================================================
+// SCI-FI HUD CYAN & DARK TEAL PALETTE
+// =========================================================================
 
-// Dark HUD Backgrounds & Surfaces
-val JarvisSpaceBlack = Color(0xFF040711)
-val JarvisSurfaceDark = Color(0xFF0A0F1D)
-val JarvisSurfaceElevated = Color(0xFF10192D)
-val JarvisSurfaceCard = Color(0xFF142038)
-val JarvisBorderCyan = Color(0x4000F0FF)
-val JarvisBorderGlow = Color(0x8000F0FF)
+// High-tech Glowing Cyan & Light-Blue Accents (HUD Neon & Rings)
+val JarvisCyanGlow = Color(0xFF00F0FF)       // Vibrant electric neon cyan glow
+val JarvisCyanBright = Color(0xFF38BDF8)     // Sky bright light-blue highlight
+val JarvisCyan = Color(0xFF00E5FF)           // Primary vibrant HUD cyan
+val JarvisCyanDark = Color(0xFF0284C7)       // Deep ocean cyan
+val JarvisCyanDeep = Color(0xFF0369A1)       // Dark teal cyan panel accent
+val JarvisTealAccent = Color(0xFF14B8A6)     // Sci-fi teal highlight
+val JarvisNeonTeal = Color(0xFF06B6D4)       // Neon teal accent
 
-// Status & Accent
+// Deep Dark Teal/Cyan Backgrounds (Deep dark blue-green, almost black)
+val JarvisSpaceBlack = Color(0xFF020E14)      // Primary deep dark teal background
+val JarvisSurfaceDark = Color(0xFF05151D)     // Deep teal surface
+val JarvisSurfaceElevated = Color(0xFF091E28) // Slightly elevated dark teal panel
+val JarvisSurfaceCard = Color(0xFF0D2633)     // Dark teal module container
+val JarvisSurfaceBorder = Color(0xFF13384B)   // Subtle panel divider
+
+// HUD Borders & Glow Effects
+val JarvisBorderCyan = Color(0x6600F0FF)     // 40% opacity glowing cyan border
+val JarvisBorderGlow = Color(0x9900F0FF)     // 60% opacity neon cyan glow
+val JarvisBorderSubtle = Color(0x1F00E5FF)   // 12% opacity subtle technical grid line
+
+// Status & Indicators
 val JarvisOrange = Color(0xFFFF9500)
 val JarvisGold = Color(0xFFFFCC00)
-val JarvisGreen = Color(0xFF10B981)
 val JarvisRed = Color(0xFFEF4444)
+val JarvisGreen = Color(0xFF10B981)
 
-// Text Colors
-val JarvisTextPrimary = Color(0xFFF0F9FF)
-val JarvisTextSecondary = Color(0xFF94A3B8)
-val JarvisTextMuted = Color(0xFF64748B)
-val JarvisTextGlow = Color(0xFFE0F7FA)
+// Clean High-Contrast Text Colors (Readability against Dark Teal)
+val JarvisTextPrimary = Color(0xFFF0FDFF)     // Crisp white with faint cyan tint
+val JarvisTextSecondary = Color(0xFFBAE6FD)   // Soft readable light cyan
+val JarvisTextMuted = Color(0xFF64748B)       // Muted slate-teal
+val JarvisTextGlow = Color(0xFFE0F2FE)        // Luminous light cyan text
+
+// Theme Aliases (Guarantees all screens map to the Glowing Cyan/Teal HUD)
+val JarvisGreenGlow = JarvisCyanGlow
+val JarvisGreenBright = JarvisCyanBright
+val JarvisGreenDark = JarvisCyanDark
+val JarvisGreenDeep = JarvisCyanDeep
+val JarvisGreenMuted = JarvisTextMuted
+val JarvisBorderGreen = JarvisBorderCyan
+val JarvisBlue = JarvisCyan
+val JarvisBlueDark = JarvisCyanDeep

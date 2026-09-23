@@ -1,38 +1,155 @@
 <?xml version="1.0" encoding="utf-8"?>
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <!-- Outer Arc Reactor Ring -->
+
+    <!-- 1. Soft Ambient Drop Shadow beneath the sphere -->
     <path
-        android:pathData="M54,28 A26,26 0 1,1 53.9,28 Z"
-        android:strokeWidth="3.2"
+        android:pathData="M32,82 a22,5 0 1,0 44,0 a22,5 0 1,0 -44,0">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:centerX="54"
+                android:centerY="82"
+                android:gradientRadius="22"
+                android:startColor="#331E293B"
+                android:endColor="#001E293B"
+                android:type="radial" />
+        </aapt:attr>
+    </path>
+
+    <!-- 2. Metallic Silver/Chrome Spherical Body -->
+    <path
+        android:pathData="M54,51m-26,0a26,26 0 1,1 52,0a26,26 0 1,1 -52,0">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:startX="32"
+                android:startY="28"
+                android:endX="74"
+                android:endY="76"
+                android:type="linear">
+                <item android:color="#FFFFFF" android:offset="0.0" />
+                <item android:color="#F1F5F9" android:offset="0.25" />
+                <item android:color="#CBD5E1" android:offset="0.65" />
+                <item android:color="#94A3B8" android:offset="0.9" />
+                <item android:color="#E2E8F0" android:offset="1.0" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- Chrome Outer Rim Definition / Ambient Shadow Rim -->
+    <path
+        android:pathData="M54,51m-26,0a26,26 0 1,1 52,0a26,26 0 1,1 -52,0"
+        android:strokeWidth="1.0"
+        android:strokeColor="#3364748B"
+        android:fillColor="#00000000" />
+
+    <!-- 3. Side Glowing Blue Accent Details on the Sphere -->
+    <!-- Left glowing blue accent ear/pod -->
+    <path
+        android:pathData="M27.5,47 C26.2,48.5 26.2,53.5 27.5,55"
+        android:strokeWidth="2.2"
+        android:strokeColor="#00E5FF"
+        android:strokeLineCap="round" />
+    <path
+        android:pathData="M27.5,47 C26.2,48.5 26.2,53.5 27.5,55"
+        android:strokeWidth="3.6"
+        android:strokeColor="#4D00F0FF"
+        android:strokeLineCap="round" />
+
+    <!-- Right glowing blue accent ear/pod -->
+    <path
+        android:pathData="M80.5,47 C81.8,48.5 81.8,53.5 80.5,55"
+        android:strokeWidth="2.2"
+        android:strokeColor="#00E5FF"
+        android:strokeLineCap="round" />
+    <path
+        android:pathData="M80.5,47 C81.8,48.5 81.8,53.5 80.5,55"
+        android:strokeWidth="3.6"
+        android:strokeColor="#4D00F0FF"
+        android:strokeLineCap="round" />
+
+    <!-- 4. Dark Circular "Face" Visor Panel on the front -->
+    <path
+        android:pathData="M54,51.5m-15.5,0a15.5,15.5 0 1,1 31,0a15.5,15.5 0 1,1 -31,0">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:startX="42"
+                android:startY="38"
+                android:endX="66"
+                android:endY="66"
+                android:type="linear">
+                <item android:color="#1A2639" android:offset="0.0" />
+                <item android:color="#0B132B" android:offset="0.5" />
+                <item android:color="#060C1F" android:offset="1.0" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- 5. Thin Glowing Blue Rim / Ring around the face panel -->
+    <path
+        android:pathData="M54,51.5m-15.5,0a15.5,15.5 0 1,1 31,0a15.5,15.5 0 1,1 -31,0"
+        android:strokeWidth="1.4"
         android:strokeColor="#00E5FF"
         android:fillColor="#00000000" />
-    
-    <!-- Secondary Dashed Segment Ring -->
     <path
-        android:pathData="M54,34 A20,20 0 1,1 53.9,34 Z"
-        android:strokeWidth="1.8"
-        android:strokeColor="#38BDF8"
+        android:pathData="M54,51.5m-16.2,0a16.2,16.2 0 1,1 32.4,0a16.2,16.2 0 1,1 -32.4,0"
+        android:strokeWidth="0.8"
+        android:strokeColor="#5538BDF8"
         android:fillColor="#00000000" />
 
-    <!-- Reactor Coils (8 Radial Segments) -->
+    <!-- 6. Two Round, Glowing Light-Blue Eyes -->
+    <!-- Left Eye Outer Glow -->
     <path
-        android:pathData="M54,26 L54,34 M54,74 L54,82 M26,54 L34,54 M74,54 L82,54 M34.2,34.2 L39.8,39.8 M68.2,68.2 L73.8,73.8 M73.8,34.2 L68.2,39.8 M39.8,68.2 L34.2,73.8"
-        android:strokeWidth="3.0"
-        android:strokeColor="#00F0FF" />
+        android:pathData="M48,48.5m-3.2,0a3.2,3.2 0 1,1 6.4,0a3.2,3.2 0 1,1 -6.4,0"
+        android:fillColor="#4D00F0FF" />
+    <!-- Left Eye Core -->
+    <path
+        android:pathData="M48,48.5m-2.2,0a2.2,2.2 0 1,1 4.4,0a2.2,2.2 0 1,1 -4.4,0"
+        android:fillColor="#00F0FF" />
+    <!-- Left Eye Pupil Reflection Highlight -->
+    <path
+        android:pathData="M47.3,47.8m-0.8,0a0.8,0.8 0 1,1 1.6,0a0.8,0.8 0 1,1 -1.6,0"
+        android:fillColor="#FFFFFF" />
 
-    <!-- Inner Core Ring -->
+    <!-- Right Eye Outer Glow -->
     <path
-        android:pathData="M54,42 A12,12 0 1,1 53.9,42 Z"
-        android:strokeWidth="2.5"
-        android:strokeColor="#7DD3FC"
-        android:fillColor="#1500E5FF" />
+        android:pathData="M60,48.5m-3.2,0a3.2,3.2 0 1,1 6.4,0a3.2,3.2 0 1,1 -6.4,0"
+        android:fillColor="#4D00F0FF" />
+    <!-- Right Eye Core -->
+    <path
+        android:pathData="M60,48.5m-2.2,0a2.2,2.2 0 1,1 4.4,0a2.2,2.2 0 1,1 -4.4,0"
+        android:fillColor="#00F0FF" />
+    <!-- Right Eye Pupil Reflection Highlight -->
+    <path
+        android:pathData="M59.3,47.8m-0.8,0a0.8,0.8 0 1,1 1.6,0a0.8,0.8 0 1,1 -1.6,0"
+        android:fillColor="#FFFFFF" />
 
-    <!-- Central Glowing Core -->
+    <!-- 7. Small Curved Smiling Mouth Line beneath them -->
     <path
-        android:pathData="M54,48 A6,6 0 1,1 53.9,48 Z"
-        android:fillColor="#E0F2FE" />
+        android:pathData="M50,55.5 C51.5,58.5 56.5,58.5 58,55.5"
+        android:strokeWidth="1.6"
+        android:strokeColor="#38BDF8"
+        android:strokeLineCap="round"
+        android:fillColor="#00000000" />
+    <!-- Soft glow under smile -->
+    <path
+        android:pathData="M50,55.5 C51.5,58.5 56.5,58.5 58,55.5"
+        android:strokeWidth="2.8"
+        android:strokeColor="#4000F0FF"
+        android:strokeLineCap="round"
+        android:fillColor="#00000000" />
+
+    <!-- 8. Glossy Specular 3D Reflection on upper metallic chrome sphere -->
+    <path
+        android:pathData="M37,34 C41,27.5 49,25.5 58,25.5 C49.5,27.5 42,30.5 37,34 Z"
+        android:fillColor="#99FFFFFF" />
+
+    <!-- Subtle soft gloss reflection on face glass -->
+    <path
+        android:pathData="M43,40 C46.5,37.2 52,36.5 57,36.5 C51,37.8 46,39.2 43,40 Z"
+        android:fillColor="#33FFFFFF" />
+
 </vector>

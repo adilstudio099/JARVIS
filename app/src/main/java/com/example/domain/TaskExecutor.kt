@@ -1,13 +1,17 @@
 package com.example.domain
 
 import com.example.data.JarvisRepository
+import com.example.data.local.DirectiveItemEntity
 import com.example.data.local.NoteEntity
 import com.example.data.local.ReminderEntity
 import com.example.data.local.TodoEntity
-import com.example.data.remote.WeatherService
+import com.example.data.remote.GeminiResponse
+import com.example.data.remote.GeminiService
+import com.example.device.DeviceActionHandler
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.text.SimpleDateFormat
-import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 
@@ -20,105 +24,209 @@ data class TaskExecutionResult(
 
 class TaskExecutor(
     private val repository: JarvisRepository,
-    private val weatherService: WeatherService = WeatherService()
+    private val geminiService: GeminiService = GeminiService(),
+    private val deviceActionHandler: DeviceActionHandler? = null
 ) {
-    suspend fun executeTool(functionName: String, arguments: Map<String, Any?>): TaskExecutionResult {
-        return when (functionName) {
-            "set_reminder" -> {
-                val task = arguments["task"]?.toString() ?: "Reminder"
-                val timeStr = arguments["time"]?.toString() ?: "Soon"
 
-                // Estimate target epoch if possible
-                val targetEpoch = parseTimeToEpoch(timeStr)
-                repository.insertReminder(
-                    ReminderEntity(
-                        task = task,
-                        timeText = timeStr,
-                        targetEpochMs = targetEpoch
-                    )
-                )
+    private fun isUrdu(text: String): Boolean {
+        return text.any { it in '\u0600'..'\u06FF' || it in '\u0750'..'\u077F' || it in '\uFB50'..'\uFDFF' || it in '\uFE70'..'\uFEFF' }
+    }
 
-                val spoken = "Reminder set for $task at $timeStr, sir."
-                val display = "⏰ Reminder Scheduled\n• Task: $task\n• Time: $timeStr"
-                val json = JSONObject().apply {
-                    put("type", "reminder")
-                    put("task", task)
-                    put("time", timeStr)
-                }.toString()
+    suspend fun executeTool(
+        functionName: String,
+        arguments: Map<String, Any?>,
+        userPrompt: String = "",
+        customApiKey: String? = null
+    ): TaskExecutionResult = withContext(Dispatchers.IO) {
+        val userIsUrdu = isUrdu(userPrompt) || isUrdu(arguments.values.joinToString(" ") { it?.toString() ?: "" })
 
-                TaskExecutionResult("REMINDER", spoken, display, json)
-            }
+        when (functionName) {
+            // 1. WEB SEARCH GROUNDING
+            "web_search" -> {
+                val query = arguments["query"]?.toString() ?: userPrompt
+                val groundingResponse = geminiService.searchWithGrounding(query, customApiKey)
 
-            "create_note" -> {
-                val title = arguments["title"]?.toString() ?: "Note"
-                val content = arguments["content"]?.toString() ?: ""
-                val category = arguments["category"]?.toString() ?: "General"
-
-                repository.insertNote(
-                    NoteEntity(
-                        title = title,
-                        content = content,
-                        category = category
-                    )
-                )
-
-                val spoken = "I have noted that down under $title."
-                val display = "📝 Note Saved\n• Title: $title\n• Category: $category\n• Content: $content"
-                val json = JSONObject().apply {
-                    put("type", "note")
-                    put("title", title)
-                    put("content", content)
-                    put("category", category)
-                }.toString()
-
-                TaskExecutionResult("NOTE", spoken, display, json)
-            }
-
-            "manage_todo" -> {
-                val action = arguments["action"]?.toString()?.lowercase() ?: "add"
-                val title = arguments["title"]?.toString() ?: "Task"
-                val priority = arguments["priority"]?.toString() ?: "Normal"
-
-                when (action) {
-                    "add" -> {
-                        repository.insertTodo(
-                            TodoEntity(
-                                title = title,
-                                priority = priority
-                            )
+                when (groundingResponse) {
+                    is GeminiResponse.TextResponse -> {
+                        val text = groundingResponse.text
+                        val spoken = text.take(240).replace(Regex("[*#`_~]"), "")
+                        val display = if (userIsUrdu) {
+                            "🌐 لائیو گوگل سرچ معلومات:\n\n$text"
+                        } else {
+                            "🌐 Live Google Search Grounding:\n\n$text"
+                        }
+                        TaskExecutionResult("SEARCH", spoken, display)
+                    }
+                    is GeminiResponse.QuotaExceededResponse -> {
+                        TaskExecutionResult(
+                            "QUOTA",
+                            "معذرت، آج کی مفت یومیہ حد مکمل ہو گئی ہے۔ برائے مہربانی کچھ دیر بعد کوشش فرمائیں۔",
+                            "⚠️ روزانہ مفت حد (Free Daily Quota) ختم ہو گئی ہے۔ آپ سیٹنگز میں ذاتی API Key درج کر سکتے ہیں۔"
                         )
-                        val spoken = "Added '$title' to your to-do list."
-                        val display = "✅ To-Do Added\n• Task: $title\n• Priority: $priority"
-                        val json = JSONObject().apply {
-                            put("type", "todo")
-                            put("action", "add")
-                            put("title", title)
-                            put("priority", priority)
-                        }.toString()
-                        TaskExecutionResult("TODO", spoken, display, json)
                     }
                     else -> {
-                        repository.insertTodo(
-                            TodoEntity(title = title, priority = priority)
-                        )
-                        val spoken = "Updated your to-do list with '$title'."
-                        val display = "✅ To-Do Updated\n• Task: $title"
-                        TaskExecutionResult("TODO", spoken, display)
+                        val fallback = if (userIsUrdu) {
+                            "معذرت، انٹرنیٹ پر اس وقت مطلوبہ معلومات حاصل نہیں ہو سکیں۔ برائے مہربانی دوبارہ کوشش کریں۔"
+                        } else {
+                            "Unable to retrieve search results at this moment. Please check your internet connection."
+                        }
+                        TaskExecutionResult("SEARCH", fallback, fallback)
                     }
                 }
             }
 
-            "calculate" -> {
+            // 2. SAVE DIRECTIVE DATA (General persistence for any task, reminder, note, memory, list)
+            "save_directive_data" -> {
+                val type = arguments["type"]?.toString()?.lowercase() ?: "general"
+                val title = arguments["title"]?.toString()?.trim() ?: "Directive"
+                val content = arguments["content"]?.toString()?.trim() ?: ""
+                val tags = arguments["tags"]?.toString()?.trim() ?: ""
+
+                // Persist into dynamic generic directive store
+                repository.insertDirective(
+                    DirectiveItemEntity(
+                        type = type,
+                        title = title,
+                        content = content,
+                        tags = tags
+                    )
+                )
+
+                // Also sync with specialized tables for cross-compatibility
+                when (type) {
+                    "reminder", "alarm" -> {
+                        val targetEpoch = parseTimeToEpoch(content)
+                        repository.insertReminder(
+                            ReminderEntity(
+                                task = title,
+                                timeText = content.ifBlank { "Scheduled" },
+                                targetEpochMs = targetEpoch
+                            )
+                        )
+                    }
+                    "task", "todo" -> {
+                        repository.insertTodo(
+                            TodoEntity(
+                                title = title,
+                                priority = if (tags.contains("urgent", ignoreCase = true)) "High" else "Normal"
+                            )
+                        )
+                    }
+                    "note", "memo", "memory" -> {
+                        repository.insertNote(
+                            NoteEntity(
+                                title = title,
+                                content = content.ifBlank { title },
+                                category = if (tags.isNotBlank()) tags else "General"
+                            )
+                        )
+                    }
+                }
+
+                val typeLabelUrdu = when (type) {
+                    "reminder" -> "یاد دہانی"
+                    "task", "todo" -> "کام (ٹاسک)"
+                    "note", "memo" -> "نوٹ"
+                    else -> "ریکارڈ"
+                }
+
+                val spoken = if (userIsUrdu) {
+                    "$typeLabelUrdu کامیابی سے والٹ میں محفوظ کر دیا گیا ہے۔"
+                } else {
+                    "Directive saved securely to the Stark database."
+                }
+
+                val display = if (userIsUrdu) {
+                    "💾 والٹ میں محفوظ ہو گیا:\n• عنوان: $title" +
+                            (if (content.isNotBlank()) "\n• تفصیل: $content" else "") +
+                            "\n• زمرہ: $typeLabelUrdu"
+                } else {
+                    "💾 Saved to Vault:\n• Title: $title" +
+                            (if (content.isNotBlank()) "\n• Detail: $content" else "") +
+                            "\n• Category: $type"
+                }
+
+                val rawJson = JSONObject().apply {
+                    put("type", type)
+                    put("title", title)
+                    put("content", content)
+                    put("tags", tags)
+                }.toString()
+
+                TaskExecutionResult("VAULT", spoken, display, rawJson)
+            }
+
+            // 3. QUERY DIRECTIVE DATA
+            "query_directive_data" -> {
+                val query = arguments["query"]?.toString()?.trim() ?: ""
+                val type = arguments["type"]?.toString()?.trim()?.lowercase() ?: "all"
+
+                val results = if (query.isNotBlank()) {
+                    repository.searchDirectives(query)
+                } else {
+                    repository.getDirectivesByType(if (type == "all") "" else type)
+                }
+
+                if (results.isEmpty()) {
+                    val spoken = if (userIsUrdu) "آپ کے پاس فی الحال کوئی محفوظ ریکارڈ موجود نہیں ہے۔" else "No matching directives found in storage."
+                    TaskExecutionResult("VAULT", spoken, "📭 $spoken")
+                } else {
+                    val count = results.size
+                    val spoken = if (userIsUrdu) "آپ کے $count محفوظ ریکارڈز حاصل کر لیے گئے ہیں۔" else "Retrieved $count stored directives, sir."
+
+                    val sb = StringBuilder()
+                    sb.append(if (userIsUrdu) "📋 محفوظ ریکارڈز کی فہرست ($count):\n" else "📋 Stored Vault Directives ($count):\n")
+                    results.take(8).forEachIndexed { idx, item ->
+                        val check = if (item.isCompleted) "✅" else "📌"
+                        sb.append("\n$check ${idx + 1}. [${item.type.uppercase()}] ${item.title}")
+                        if (item.content.isNotBlank()) sb.append("\n   ↳ ${item.content}")
+                    }
+
+                    TaskExecutionResult("VAULT", spoken, sb.toString())
+                }
+            }
+
+            // 4. UPDATE OR REMOVE DIRECTIVE DATA
+            "update_or_remove_data" -> {
+                val action = arguments["action"]?.toString()?.lowercase() ?: "complete"
+                val identifier = arguments["identifier"]?.toString()?.trim() ?: ""
+
+                val matches = repository.searchDirectives(identifier)
+                if (matches.isNotEmpty()) {
+                    val target = matches.first()
+                    if (action == "delete" || action == "remove") {
+                        repository.deleteDirectiveById(target.id)
+                        val spoken = if (userIsUrdu) "آئٹم کامیابی سے ہٹا دیا گیا ہے۔" else "Item removed from vault."
+                        TaskExecutionResult("VAULT", spoken, "🗑 Removed: ${target.title}")
+                    } else {
+                        repository.toggleDirectiveCompletion(target.id, true)
+                        val spoken = if (userIsUrdu) "آئٹم مکمل قرار دے دیا گیا ہے۔" else "Directive marked as completed."
+                        TaskExecutionResult("VAULT", spoken, "✅ Completed: ${target.title}")
+                    }
+                } else {
+                    val spoken = if (userIsUrdu) "مطلوبہ آئٹم نہیں ملا۔" else "No matching directive found."
+                    TaskExecutionResult("VAULT", spoken, spoken)
+                }
+            }
+
+            // 5. COMPUTE CALCULATION
+            "compute_calculation", "calculate" -> {
                 val expression = arguments["expression"]?.toString() ?: ""
                 val result = arguments["result"]?.toString() ?: evaluateExpression(expression)
                 val explanation = arguments["explanation"]?.toString() ?: ""
 
-                val spoken = "The result of $expression is $result."
-                val display = if (explanation.isNotBlank()) {
-                    "🔢 Calculation\n• Equation: $expression\n• Result: $result\n• Detail: $explanation"
+                val spoken = if (userIsUrdu) {
+                    "$expression کا نتیجہ $result ہے۔"
                 } else {
-                    "🔢 Calculation\n• Equation: $expression\n• Result: = $result"
+                    "The calculation result is $result."
                 }
+
+                val display = if (userIsUrdu) {
+                    "🔢 حسابی تخمینہ\n• مساوات: $expression\n• نتیجہ: = $result" + (if (explanation.isNotBlank()) "\n• تفصیل: $explanation" else "")
+                } else {
+                    "🔢 Numerical Calculation\n• Equation: $expression\n• Result: = $result" + (if (explanation.isNotBlank()) "\n• Detail: $explanation" else "")
+                }
+
                 val json = JSONObject().apply {
                     put("type", "calculator")
                     put("expression", expression)
@@ -128,67 +236,85 @@ class TaskExecutor(
                 TaskExecutionResult("CALCULATOR", spoken, display, json)
             }
 
-            "get_date_time" -> {
+            // 6. GET DEVICE TELEMETRY
+            "get_device_telemetry", "get_date_time" -> {
                 val now = Date()
                 val timeFormat = SimpleDateFormat("h:mm a", Locale.getDefault())
                 val dateFormat = SimpleDateFormat("EEEE, MMMM d, yyyy", Locale.getDefault())
                 val currentTime = timeFormat.format(now)
                 val currentDate = dateFormat.format(now)
 
-                val spoken = "It is currently $currentTime on $currentDate."
-                val display = "⏱ Temporal Telemetry\n• Current Time: $currentTime\n• Date: $currentDate"
-                val json = JSONObject().apply {
-                    put("type", "date_time")
-                    put("time", currentTime)
-                    put("date", currentDate)
-                }.toString()
+                val spoken = if (userIsUrdu) {
+                    "اس وقت $currentTime بجے ہیں، اور آج $currentDate ہے۔"
+                } else {
+                    "Current time is $currentTime on $currentDate."
+                }
 
-                TaskExecutionResult("DATE_TIME", spoken, display, json)
+                val display = if (userIsUrdu) {
+                    "⏱ سسٹم وقت و تاریخ\n• موجودہ وقت: $currentTime\n• تاریخ: $currentDate"
+                } else {
+                    "⏱ System Temporal Telemetry\n• Time: $currentTime\n• Date: $currentDate"
+                }
+
+                TaskExecutionResult("TELEMETRY", spoken, display)
             }
 
-            "get_weather" -> {
-                val location = arguments["location"]?.toString() ?: "Current Location"
-                val weather = weatherService.fetchWeather(location)
+            // 7. REAL NATIVE DEVICE ACTION (Android Intents)
+            "device_action" -> {
+                val action = arguments["action"]?.toString()?.lowercase() ?: ""
+                val target = arguments["target"]?.toString()?.trim() ?: ""
+                val extraData = arguments["extraData"]?.toString()?.trim() ?: ""
 
-                val spoken = weather.rawSummary
-                val display = "🌤 Weather Analysis for ${weather.location}\n" +
-                        "• Condition: ${weather.condition}\n" +
-                        "• Temperature: ${"%.1f".format(weather.temperatureC)}°C (${"%.1f".format(weather.temperatureF)}°F)\n" +
-                        "• Humidity: ${weather.humidity}%\n" +
-                        "• Wind: ${weather.windSpeedKmh} km/h"
-                val json = JSONObject().apply {
-                    put("type", "weather")
-                    put("location", weather.location)
-                    put("tempC", weather.temperatureC)
-                    put("condition", weather.condition)
-                    put("humidity", weather.humidity)
-                }.toString()
-
-                TaskExecutionResult("WEATHER", spoken, display, json)
+                if (deviceActionHandler != null) {
+                    val result = when (action) {
+                        "call" -> deviceActionHandler.dialPhone(target, userIsUrdu)
+                        "sms" -> deviceActionHandler.sendSms(target, extraData, userIsUrdu)
+                        "maps" -> deviceActionHandler.openMaps(target, userIsUrdu)
+                        "alarm" -> {
+                            val parts = target.split(":")
+                            val hour = parts.getOrNull(0)?.toIntOrNull() ?: 7
+                            val min = parts.getOrNull(1)?.toIntOrNull() ?: 0
+                            deviceActionHandler.setAlarm(hour, min, extraData.ifBlank { "Jarvis Alarm" }, userIsUrdu)
+                        }
+                        "open_url" -> deviceActionHandler.openUrl(target, userIsUrdu)
+                        "open_app" -> deviceActionHandler.launchApp(target, userIsUrdu)
+                        else -> {
+                            val err = if (userIsUrdu) "نامعلوم ڈیوائس ایکشن: $action" else "Unknown device action: $action"
+                            com.example.device.DeviceActionResult(false, err, "⚠️ $err")
+                        }
+                    }
+                    TaskExecutionResult("DEVICE_ACTION", result.spokenResponse, result.displayResponse)
+                } else {
+                    val msg = if (userIsUrdu) "ڈیوائس ایکشنز ہینڈلر دستیاب نہیں ہے۔" else "Device action handler not initialized."
+                    TaskExecutionResult("DEVICE_ACTION", msg, "⚠️ $msg")
+                }
             }
 
             else -> {
-                TaskExecutionResult(
-                    "SYSTEM",
-                    "Task executed successfully, sir.",
-                    "Function '$functionName' processed with parameters: $arguments"
-                )
+                val spoken = if (userIsUrdu) "حکم موصول ہو گیا ہے اور لاگ کر دیا گیا ہے۔" else "Directive logged, sir."
+                TaskExecutionResult("UNKNOWN", spoken, spoken)
             }
         }
     }
 
     private fun parseTimeToEpoch(timeStr: String): Long {
         val now = System.currentTimeMillis()
-        val lower = timeStr.lowercase()
         return try {
-            if (lower.contains("min")) {
-                val numbers = Regex("\\d+").find(lower)?.value?.toLongOrNull() ?: 10
-                now + numbers * 60 * 1000
-            } else if (lower.contains("hour")) {
-                val numbers = Regex("\\d+").find(lower)?.value?.toLongOrNull() ?: 1
-                now + numbers * 60 * 60 * 1000
+            if (timeStr.contains("شام") || timeStr.contains("pm") || timeStr.contains("PM")) {
+                val digits = Regex("\\d+").find(timeStr)?.value?.toIntOrNull() ?: 5
+                val hour = if (digits < 12) digits + 12 else digits
+                val cal = java.util.Calendar.getInstance()
+                cal.set(java.util.Calendar.HOUR_OF_DAY, hour)
+                cal.set(java.util.Calendar.MINUTE, 0)
+                cal.timeInMillis
+            } else if (timeStr.contains("صبح") || timeStr.contains("am") || timeStr.contains("AM")) {
+                val digits = Regex("\\d+").find(timeStr)?.value?.toIntOrNull() ?: 9
+                val cal = java.util.Calendar.getInstance()
+                cal.set(java.util.Calendar.HOUR_OF_DAY, digits)
+                cal.set(java.util.Calendar.MINUTE, 0)
+                cal.timeInMillis
             } else {
-                now + 30 * 60 * 1000 // default 30 mins
+                now + 30 * 60 * 1000
             }
         } catch (e: Exception) {
             now + 15 * 60 * 1000
@@ -198,13 +324,15 @@ class TaskExecutor(
     fun evaluateExpression(expr: String): String {
         return try {
             val clean = expr.replace("x", "*").replace("×", "*").replace("÷", "/")
-            if (clean.contains("% of")) {
-                val parts = clean.split("% of")
-                val pct = parts[0].filter { it.isDigit() || it == '.' }.toDouble()
-                val total = parts[1].filter { it.isDigit() || it == '.' }.toDouble()
-                return "%.2f".format((pct / 100.0) * total)
+            if (clean.contains("% of") || clean.contains("%")) {
+                val pctMatch = Regex("([\\d.]+)\\s*%").find(clean)
+                val totalMatch = Regex("(?:of|پر|کا)\\s*([\\d.]+)").find(clean)
+                if (pctMatch != null && totalMatch != null) {
+                    val pct = pctMatch.groupValues[1].toDouble()
+                    val total = totalMatch.groupValues[1].toDouble()
+                    return "%.2f".format((pct / 100.0) * total)
+                }
             }
-            // Simple arithmetic evaluator
             when {
                 clean.contains("+") -> {
                     val p = clean.split("+")
@@ -229,58 +357,117 @@ class TaskExecutor(
         }
     }
 
-    // Local offline command parser fallback
-    suspend fun executeLocalFallback(query: String): TaskExecutionResult? {
+    /**
+     * Checks if a user command asks for an action that genuinely cannot be performed
+     * due to mobile platform sandbox / security restrictions (e.g. money transfers, restarting phone, hacking).
+     */
+    fun checkImpossibleAction(query: String): TaskExecutionResult? {
+        val q = query.lowercase()
+        val impossibleKeywords = listOf(
+            "restart phone", "reboot", "ری اسٹارٹ",
+            "bank transfer", "send money", "پیسے بھیجو",
+            "hack", "ہیک",
+            "download youtube", "یوٹیوب ویڈیو ڈاؤنلوڈ"
+        )
+
+        val matches = impossibleKeywords.any { q.contains(it) }
+        if (!matches) return null
+
+        val isUrduQuery = isUrdu(query) || q.contains("karo") || q.contains("bhejo") || q.contains("karen")
+
+        val spoken = if (isUrduQuery) {
+            "معذرت، ڈیوائس کی سیکیورٹی پابندیوں اور پالیسی کی وجہ سے میں سسٹم کو ریبوٹ یا مالیاتی ٹرانزیکشن نہیں کر سکتا۔"
+        } else {
+            "Sir, due to mobile security sandbox restrictions, I cannot directly reboot the device or execute financial transfers."
+        }
+
+        val display = if (isUrduQuery) {
+            "⚠️ سیکیورٹی پابندی (Security Boundary):\n" +
+                    "اینڈرائیڈ آپریٹنگ سسٹم کی سیکیورٹی پابندیوں کے باعث میں سسٹم سطح کے کنٹرول (جیسے ریبوٹ) یا غیر محفوظ مالیاتی ٹرانزیکشن نہیں کر سکتا۔\n\n" +
+                    "💡 تاہم میں اس سے متعلق کوئی بھی یاد دہانی، ایجنڈا، حساب یا نوٹ آپ کے لیے محفوظ کر سکتا ہوں۔"
+        } else {
+            "⚠️ Mobile Platform Security Boundary:\n" +
+                    "Due to Android sandbox protections, rebooting the system or executing financial transactions is prohibited.\n\n" +
+                    "💡 I can securely store reminders, memos, notes, or search for relevant instructions instead."
+        }
+
+        return TaskExecutionResult("RESTRICTED", spoken, display)
+    }
+
+    /**
+     * Offline local fallback command parser supporting both Urdu and English natural language.
+     */
+    suspend fun executeLocalFallback(query: String, customApiKey: String? = null): TaskExecutionResult? {
         val q = query.trim().lowercase()
 
+        // Check if impossible / OS restricted action
+        checkImpossibleAction(query)?.let { return it }
+
         // 1. Time / Date
-        if (q.contains("time") || q.contains("what time") || q.contains("current time") || q.contains("date") || q.contains("what day")) {
-            return executeTool("get_date_time", emptyMap())
+        if (q.contains("time") || q.contains("وقت") || q.contains("date") || q.contains("تاریخ") || q.contains("ٹائم")) {
+            return executeTool("get_device_telemetry", emptyMap(), query, customApiKey)
         }
 
-        // 2. Weather
-        if (q.startsWith("weather") || q.contains("weather in") || q.contains("temperature")) {
-            val loc = if (q.contains(" in ")) {
-                q.substringAfter(" in ").trim()
-            } else {
-                q.removePrefix("weather").removePrefix("temperature").trim().ifBlank { "New York" }
+        // 2. Call / Phone Dial
+        if (q.contains("call") || q.contains("کال") || q.contains("فون ملاؤ") || q.contains("ڈائل")) {
+            val digits = Regex("[0-9+]{4,}").find(query)?.value ?: "0300"
+            return executeTool("device_action", mapOf("action" to "call", "target" to digits), query, customApiKey)
+        }
+
+        // 3. SMS Message
+        if (q.contains("sms") || q.contains("میسج") || q.contains("پیغام")) {
+            val digits = Regex("[0-9+]{4,}").find(query)?.value ?: ""
+            return executeTool("device_action", mapOf("action" to "sms", "target" to digits, "extraData" to query), query, customApiKey)
+        }
+
+        // 4. Maps / Navigation
+        if (q.contains("map") || q.contains("نقشہ") || q.contains("راستہ") || q.contains("navigation")) {
+            val loc = query.replace(Regex("(?i)map|maps|نقشہ|راستہ|دکھاؤ"), "").trim()
+            return executeTool("device_action", mapOf("action" to "maps", "target" to loc.ifBlank { "Lahore" }), query, customApiKey)
+        }
+
+        // 5. App Launch
+        if (q.contains("open ") || q.contains("کھولو")) {
+            val app = query.replace(Regex("(?i)open|کھولو"), "").trim()
+            if (app.isNotBlank()) {
+                return executeTool("device_action", mapOf("action" to "open_app", "target" to app), query, customApiKey)
             }
-            return executeTool("get_weather", mapOf("location" to loc))
         }
 
-        // 3. Reminders
-        if (q.startsWith("remind me to") || q.startsWith("set reminder") || q.startsWith("reminder")) {
-            val taskPart = q.removePrefix("remind me to").removePrefix("set reminder").removePrefix("reminder").trim()
-            val timePart = if (taskPart.contains(" in ")) {
-                taskPart.substringAfter(" in ").trim()
-            } else if (taskPart.contains(" at ")) {
-                taskPart.substringAfter(" at ").trim()
-            } else {
-                "in 15 minutes"
-            }
-            val cleanTask = taskPart.substringBefore(" in ").substringBefore(" at ").trim()
-            return executeTool("set_reminder", mapOf("task" to cleanTask.ifBlank { "Task" }, "time" to timePart))
+        // 6. Reminders
+        if (q.contains("remind") || q.contains("یاد دلاؤ") || q.contains("یاد دہانی")) {
+            val task = q.removePrefix("remind me to").removePrefix("مجھے یاد دلاؤ").trim()
+            return executeTool("save_directive_data", mapOf("type" to "reminder", "title" to task.ifBlank { "Reminder" }, "content" to "Scheduled"), query, customApiKey)
         }
 
-        // 4. Notes
-        if (q.startsWith("note down") || q.startsWith("take a note") || q.startsWith("note:") || q.startsWith("create note") || q.startsWith("save note")) {
-            val body = q.removePrefix("note down").removePrefix("take a note").removePrefix("note:").removePrefix("create note").removePrefix("save note").trim()
-            val title = if (body.contains(":")) body.substringBefore(":").trim() else "Quick Note"
-            val content = if (body.contains(":")) body.substringAfter(":").trim() else body
-            return executeTool("create_note", mapOf("title" to title.replaceFirstChar { it.uppercase() }, "content" to content, "category" to "Personal"))
+        // 7. Notes & Memory
+        if (q.contains("note") || q.contains("نوٹ") || q.contains("یاد رکھو") || q.contains("محفوظ کرو")) {
+            val body = q.removePrefix("note down").removePrefix("take a note").removePrefix("نوٹ کرو").removePrefix("یاد رکھو").trim()
+            return executeTool("save_directive_data", mapOf("type" to "note", "title" to body.take(30).ifBlank { "Quick Note" }, "content" to body), query, customApiKey)
         }
 
-        // 5. Todo
-        if (q.startsWith("todo") || q.startsWith("add to todo") || q.startsWith("add to-do") || q.contains("to my todo list")) {
-            val task = q.removePrefix("add to todo").removePrefix("add to-do").removePrefix("todo").removeSuffix("to my todo list").trim()
-            return executeTool("manage_todo", mapOf("action" to "add", "title" to task.ifBlank { "New Task" }, "priority" to "Normal"))
+        // 8. Query / List saved items
+        if (q.contains("show notes") || q.contains("my tasks") || q.contains("دکھاؤ") || q.contains("والٹ") || q.contains("لسٹ")) {
+            return executeTool("query_directive_data", emptyMap(), query, customApiKey)
         }
 
-        // 6. Calculator
-        if (q.startsWith("calculate") || q.startsWith("what is ") && (q.contains("+") || q.contains("-") || q.contains("*") || q.contains("/") || q.contains("%"))) {
-            val expr = q.removePrefix("calculate").removePrefix("what is ").removeSuffix("?").trim()
+        // 9. Math calculation
+        if (q.contains("calculate") || q.contains("حساب") || q.contains("کتنے ہوتے ہیں") || (q.contains("+") || q.contains("-") || q.contains("*") || q.contains("/"))) {
+            val expr = q.removePrefix("calculate").removePrefix("what is ").removePrefix("حساب لگاؤ").removeSuffix("?").trim()
             val res = evaluateExpression(expr)
-            return executeTool("calculate", mapOf("expression" to expr, "result" to res))
+            return executeTool("compute_calculation", mapOf("expression" to expr, "result" to res), query, customApiKey)
+        }
+
+        // 10. Weather / Live Search (if API key available)
+        if (q.contains("weather") || q.contains("موسم") || q.contains("temperature") || q.contains("درجہ حرارت")) {
+            val loc = if (q.contains("in ")) {
+                q.substringAfter("in ").trim()
+            } else if (q.contains("میں ")) {
+                q.substringBefore("میں ").trim().split(" ").lastOrNull() ?: "Lahore"
+            } else {
+                "Lahore"
+            }
+            return executeTool("web_search", mapOf("query" to "weather in $loc"), query, customApiKey)
         }
 
         return null

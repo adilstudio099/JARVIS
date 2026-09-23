@@ -1,6 +1,7 @@
 package com.example.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -19,12 +20,16 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.Key
+import androidx.compose.material.icons.filled.NetworkCheck
 import androidx.compose.material.icons.filled.RecordVoiceOver
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
@@ -53,11 +58,13 @@ import com.example.ui.JarvisViewModel
 import com.example.ui.components.CyberDecryptedText
 import com.example.ui.components.HudCard
 import com.example.ui.components.HudScanOverlay
+import com.example.ui.components.HudTechnicalGridBackground
 import com.example.ui.theme.JarvisBorderCyan
 import com.example.ui.theme.JarvisCyan
 import com.example.ui.theme.JarvisCyanBright
 import com.example.ui.theme.JarvisGreen
 import com.example.ui.theme.JarvisOrange
+import com.example.ui.theme.JarvisRed
 import com.example.ui.theme.JarvisSpaceBlack
 import com.example.ui.theme.JarvisSurfaceElevated
 import com.example.ui.theme.JarvisTextMuted
@@ -73,6 +80,8 @@ fun SettingsScreen(
     val isTtsEnabled by viewModel.isTtsEnabled.collectAsStateWithLifecycle()
     val speechRate by viewModel.speechRate.collectAsStateWithLifecycle()
     val speechPitch by viewModel.speechPitch.collectAsStateWithLifecycle()
+    val isTestingConnection by viewModel.isTestingConnection.collectAsStateWithLifecycle()
+    val testConnectionResult by viewModel.testConnectionResult.collectAsStateWithLifecycle()
 
     var keyInput by remember(customApiKey) { mutableStateOf(customApiKey) }
     var keySavedNotice by remember { mutableStateOf(false) }
@@ -81,12 +90,9 @@ fun SettingsScreen(
         BuildConfig.GEMINI_API_KEY.isNotBlank() && BuildConfig.GEMINI_API_KEY != "MY_GEMINI_API_KEY"
     }
 
-    Box(
-        modifier = modifier
-            .fillMaxSize()
-            .background(JarvisSpaceBlack)
+    HudTechnicalGridBackground(
+        modifier = modifier.fillMaxSize()
     ) {
-        // Holographic HUD Scan Overlay
         HudScanOverlay(
             modifier = Modifier.fillMaxSize(),
             laserColor = JarvisCyan,
@@ -120,154 +126,10 @@ fun SettingsScreen(
                 )
             }
 
-            // Section 1: Voice & Speech Engine
+            // Section 1: AI Core & Neural Connection
             HudCard(modifier = Modifier.fillMaxWidth()) {
                 Column(modifier = Modifier.padding(16.dp)) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.RecordVoiceOver,
-                            contentDescription = null,
-                            tint = JarvisCyan,
-                            modifier = Modifier.size(20.dp)
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = "VOCAL SYNTHESIS (TTS)",
-                            color = JarvisCyanBright,
-                            fontSize = 13.sp,
-                            fontFamily = FontFamily.Monospace,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(14.dp))
-
-                    // TTS Toggle
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column {
-                            Text(
-                                text = "Vocal Audio Output",
-                                color = JarvisTextPrimary,
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.Medium
-                            )
-                            Text(
-                                text = "Read assistant responses aloud",
-                                color = JarvisTextSecondary,
-                                fontSize = 12.sp
-                            )
-                        }
-                        Switch(
-                            checked = isTtsEnabled,
-                            onCheckedChange = { viewModel.setTtsEnabled(it) },
-                            colors = SwitchDefaults.colors(
-                                checkedThumbColor = JarvisSpaceBlack,
-                                checkedTrackColor = JarvisCyan,
-                                uncheckedThumbColor = JarvisTextMuted,
-                                uncheckedTrackColor = JarvisSurfaceElevated
-                            ),
-                            modifier = Modifier.testTag("tts_toggle")
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    // Speech Rate Slider
-                    Column {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Text(
-                                text = "Speech Rate (Speed)",
-                                color = JarvisTextPrimary,
-                                fontSize = 13.sp
-                            )
-                            Text(
-                                text = "${"%.2f".format(speechRate)}x",
-                                color = JarvisCyan,
-                                fontSize = 12.sp,
-                                fontFamily = FontFamily.Monospace
-                            )
-                        }
-                        Slider(
-                            value = speechRate,
-                            onValueChange = { viewModel.setSpeechRate(it) },
-                            valueRange = 0.6f..1.6f,
-                            colors = SliderDefaults.colors(
-                                thumbColor = JarvisCyan,
-                                activeTrackColor = JarvisCyan,
-                                inactiveTrackColor = JarvisSurfaceElevated
-                            ),
-                            modifier = Modifier.testTag("speech_rate_slider")
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(10.dp))
-
-                    // Speech Pitch Slider
-                    Column {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Text(
-                                text = "Vocal Pitch (Timbre)",
-                                color = JarvisTextPrimary,
-                                fontSize = 13.sp
-                            )
-                            Text(
-                                text = "${"%.2f".format(speechPitch)}x",
-                                color = JarvisCyan,
-                                fontSize = 12.sp,
-                                fontFamily = FontFamily.Monospace
-                            )
-                        }
-                        Slider(
-                            value = speechPitch,
-                            onValueChange = { viewModel.setSpeechPitch(it) },
-                            valueRange = 0.7f..1.3f,
-                            colors = SliderDefaults.colors(
-                                thumbColor = JarvisCyan,
-                                activeTrackColor = JarvisCyan,
-                                inactiveTrackColor = JarvisSurfaceElevated
-                            ),
-                            modifier = Modifier.testTag("speech_pitch_slider")
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(10.dp))
-
-                    Button(
-                        onClick = {
-                            viewModel.speechManager.speak("Vocal synthesis audio test nominal, sir. All neural matrices functioning optimally.")
-                        },
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = JarvisCyan.copy(alpha = 0.15f),
-                            contentColor = JarvisCyanBright
-                        ),
-                        shape = RoundedCornerShape(8.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Icon(Icons.AutoMirrored.Filled.VolumeUp, contentDescription = null, modifier = Modifier.size(16.dp))
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text("Test Vocal Readout", fontSize = 12.sp, fontFamily = FontFamily.Monospace)
-                    }
-                }
-            }
-
-            // Section 2: AI Core & Neural Connection
-            HudCard(modifier = Modifier.fillMaxWidth()) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(
                             imageVector = Icons.Default.Security,
                             contentDescription = null,
@@ -276,7 +138,7 @@ fun SettingsScreen(
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = "GEMINI AI NEURAL NETWORK",
+                            text = "GEMINI AI NEURAL NETWORK (3.5 FLASH)",
                             color = JarvisCyanBright,
                             fontSize = 13.sp,
                             fontFamily = FontFamily.Monospace,
@@ -286,11 +148,10 @@ fun SettingsScreen(
 
                     Spacer(modifier = Modifier.height(12.dp))
 
-                    // Status Indicator
                     val statusText = when {
                         customApiKey.isNotBlank() -> "Custom API Key Active"
                         isBuiltInKeyPresent -> "Connected via Secrets Panel"
-                        else -> "Local Redundancy Mode (Task Modules Active)"
+                        else -> "API Key Missing (Local Redundancy Active)"
                     }
                     val statusColor = when {
                         customApiKey.isNotBlank() || isBuiltInKeyPresent -> JarvisGreen
@@ -324,7 +185,7 @@ fun SettingsScreen(
                     Spacer(modifier = Modifier.height(12.dp))
 
                     Text(
-                        text = "Gemini API Key (Optional Override):",
+                        text = "Gemini API Key:",
                         color = JarvisTextSecondary,
                         fontSize = 12.sp
                     )
@@ -337,7 +198,7 @@ fun SettingsScreen(
                             keyInput = it
                             keySavedNotice = false
                         },
-                        placeholder = { Text("Paste custom Gemini API key...", color = JarvisTextMuted) },
+                        placeholder = { Text("Paste your Gemini API key here...", color = JarvisTextMuted) },
                         modifier = Modifier
                             .fillMaxWidth()
                             .testTag("api_key_input"),
@@ -368,7 +229,8 @@ fun SettingsScreen(
                                 containerColor = JarvisCyan,
                                 contentColor = JarvisSpaceBlack
                             ),
-                            shape = RoundedCornerShape(8.dp)
+                            shape = RoundedCornerShape(8.dp),
+                            modifier = Modifier.testTag("save_api_key_button")
                         ) {
                             Text("Save Key", fontWeight = FontWeight.Bold)
                         }
@@ -380,6 +242,164 @@ fun SettingsScreen(
                                 Text("Saved!", color = JarvisGreen, fontSize = 12.sp, fontFamily = FontFamily.Monospace)
                             }
                         }
+                    }
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    // TEST CONNECTION BUTTON
+                    Button(
+                        onClick = { viewModel.testGeminiConnection() },
+                        enabled = !isTestingConnection,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = JarvisCyan.copy(alpha = 0.2f),
+                            contentColor = JarvisCyanBright
+                        ),
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("test_connection_button")
+                    ) {
+                        if (isTestingConnection) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(16.dp),
+                                color = JarvisCyan,
+                                strokeWidth = 2.dp
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Testing Connection...", fontSize = 12.sp, fontFamily = FontFamily.Monospace)
+                        } else {
+                            Icon(Icons.Default.NetworkCheck, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Test Gemini API Connection", fontSize = 12.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
+                        }
+                    }
+
+                    // Test Connection Result Display
+                    testConnectionResult?.let { (success, message) ->
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(6.dp))
+                                .background((if (success) JarvisGreen else JarvisRed).copy(alpha = 0.12f))
+                                .border(1.dp, if (success) JarvisGreen else JarvisRed, RoundedCornerShape(6.dp))
+                                .padding(10.dp)
+                        ) {
+                            Row(verticalAlignment = Alignment.Top) {
+                                Icon(
+                                    imageVector = if (success) Icons.Default.CheckCircle else Icons.Default.Error,
+                                    contentDescription = null,
+                                    tint = if (success) JarvisGreen else JarvisRed,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = message,
+                                    color = if (success) JarvisGreen else JarvisRed,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Section 2: Voice & Audio Pipeline
+            HudCard(modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Default.RecordVoiceOver,
+                            contentDescription = null,
+                            tint = JarvisCyan,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "GEMINI-NATIVE AUDIO PIPELINE",
+                            color = JarvisCyanBright,
+                            fontSize = 13.sp,
+                            fontFamily = FontFamily.Monospace,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    Text(
+                        text = "• Voice Input: AudioRecord (16kHz PCM / WAV) sent directly to Gemini multimodal understanding.",
+                        color = JarvisTextSecondary,
+                        fontSize = 12.sp
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "• Voice Output: Gemini native vocal playback with audio player.",
+                        color = JarvisTextSecondary,
+                        fontSize = 12.sp
+                    )
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    // TTS Toggle
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column {
+                            Text(text = "Audio Playback", color = JarvisTextPrimary, fontSize = 14.sp)
+                            Text(text = "Play spoken response automatically", color = JarvisTextMuted, fontSize = 11.sp)
+                        }
+                        Switch(
+                            checked = isTtsEnabled,
+                            onCheckedChange = { viewModel.setTtsEnabled(it) },
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = JarvisSpaceBlack,
+                                checkedTrackColor = JarvisCyan,
+                                uncheckedThumbColor = JarvisTextMuted,
+                                uncheckedTrackColor = JarvisSurfaceElevated
+                            ),
+                            modifier = Modifier.testTag("tts_toggle")
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    // Speech Rate Slider
+                    Column {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(text = "Speech Rate (Pace)", color = JarvisTextPrimary, fontSize = 13.sp)
+                            Text(text = "${"%.2f".format(speechRate)}x", color = JarvisCyan, fontSize = 12.sp, fontFamily = FontFamily.Monospace)
+                        }
+                        Slider(
+                            value = speechRate,
+                            onValueChange = { viewModel.setSpeechRate(it) },
+                            valueRange = 0.6f..1.6f,
+                            colors = SliderDefaults.colors(thumbColor = JarvisCyan, activeTrackColor = JarvisCyan, inactiveTrackColor = JarvisSurfaceElevated),
+                            modifier = Modifier.testTag("speech_rate_slider")
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Button(
+                        onClick = {
+                            viewModel.speechManager.speak("سسٹم نارمل ہے۔ تمام فنکشنز کامیابی سے کام کر رہے ہیں۔")
+                        },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = JarvisCyan.copy(alpha = 0.15f),
+                            contentColor = JarvisCyanBright
+                        ),
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(Icons.AutoMirrored.Filled.VolumeUp, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("Test Urdu Voice Readout", fontSize = 12.sp, fontFamily = FontFamily.Monospace)
                     }
                 }
             }
@@ -401,12 +421,32 @@ fun SettingsScreen(
 
                     Spacer(modifier = Modifier.height(12.dp))
 
-                    TelemetryItem("MODEL DESIGNATION", "gemini-2.5-flash")
-                    TelemetryItem("LOCAL STORAGE", "Room SQLite Database v1")
-                    TelemetryItem("SPEECH ENGINE", "Android SpeechRecognizer + TTS")
-                    TelemetryItem("WEATHER INTEGRATION", "Open-Meteo Atmospheric Geocoding")
-                    TelemetryItem("CALCULATION MODULE", "Real-Time Arithmetic + Algebra")
-                    TelemetryItem("QUANTUM CORES", "8 Active / Nominal")
+                    TelemetryItem("MODEL DESIGNATION", "gemini-3.5-flash (Free Tier)")
+                    TelemetryItem("VOICE PIPELINE", "Gemini Live Bidirectional Streaming")
+                    TelemetryItem("AUDIO INPUT", "AudioRecord 16kHz PCM (Real-Time)")
+                    TelemetryItem("AUDIO OUTPUT", "Gemini 24kHz PCM Streaming Track")
+                    TelemetryItem("INTERRUPTION / BARGE-IN", "Active Hardware VAD")
+                    TelemetryItem("DEVICE ACTIONS", "Android Intents (Dial, SMS, Maps, Alarms)")
+                    TelemetryItem("SEARCH GROUNDING", "Google Search Grounding (Live Web)")
+                    TelemetryItem("PERSISTENCE", "Room SQLite Database v1")
+                    TelemetryItem("LANGUAGE & SCRIPT", "Urdu Nastaliq RTL & English")
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    // Clear Chat History
+                    Button(
+                        onClick = { viewModel.clearChatHistory() },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = JarvisRed.copy(alpha = 0.15f),
+                            contentColor = JarvisRed
+                        ),
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("Clear Conversation History", fontSize = 12.sp, fontFamily = FontFamily.Monospace)
+                    }
                 }
             }
         }

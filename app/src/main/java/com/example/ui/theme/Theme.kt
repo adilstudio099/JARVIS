@@ -11,15 +11,15 @@ import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 
 private val JarvisColorScheme = darkColorScheme(
-    primary = JarvisCyan,
+    primary = JarvisGreenGlow,
     onPrimary = JarvisSpaceBlack,
-    primaryContainer = JarvisBlueDark,
-    onPrimaryContainer = JarvisCyanBright,
-    secondary = JarvisBlue,
-    onSecondary = JarvisTextPrimary,
+    primaryContainer = JarvisGreenDeep,
+    onPrimaryContainer = JarvisGreenBright,
+    secondary = JarvisGreen,
+    onSecondary = JarvisSpaceBlack,
     secondaryContainer = JarvisSurfaceCard,
-    onSecondaryContainer = JarvisCyan,
-    tertiary = JarvisNeonTeal,
+    onSecondaryContainer = JarvisGreenGlow,
+    tertiary = JarvisGreenBright,
     onTertiary = JarvisSpaceBlack,
     background = JarvisSpaceBlack,
     onBackground = JarvisTextPrimary,
@@ -27,7 +27,7 @@ private val JarvisColorScheme = darkColorScheme(
     onSurface = JarvisTextPrimary,
     surfaceVariant = JarvisSurfaceElevated,
     onSurfaceVariant = JarvisTextSecondary,
-    outline = JarvisBorderCyan,
+    outline = JarvisBorderGreen,
     error = JarvisRed,
     onError = JarvisTextPrimary
 )

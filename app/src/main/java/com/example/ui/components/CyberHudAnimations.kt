@@ -140,6 +140,150 @@ fun HudScanOverlay(
 }
 
 /**
+ * Subtle, continuous scan-line and holographic beam animation overlay
+ * designed specifically for the main Compose screen to enhance the 'Iron Man HUD' aesthetic.
+ *
+ * Features:
+ * - Continuous rolling micro-scanlines across the screen.
+ * - Smooth vertical sweeping laser beam with neon gradient halo.
+ * - Stark helmet HUD corner targeting brackets.
+ * - Completely non-intrusive: touch events pass through to child Composables unimpeded.
+ */
+@Composable
+fun ContinuousHudScanlinesOverlay(
+    modifier: Modifier = Modifier,
+    scanColor: Color = JarvisCyan,
+    beamColor: Color = JarvisCyanBright,
+    scanDurationMillis: Int = 4800,
+    lineSpacing: Dp = 4.dp,
+    showCornerBrackets: Boolean = true
+) {
+    val infiniteTransition = rememberInfiniteTransition(label = "continuous_hud_scan_anim")
+
+    // Vertical sweep progress from 0f to 1f
+    val scanProgress by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = scanDurationMillis, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "continuous_scan_progress"
+    )
+
+    // Continuous subtle roll for scanlines (rolling phosphor effect)
+    val rollPhase by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 2200, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "scanline_roll_phase"
+    )
+
+    // Breathing glow intensity
+    val ambientPulse by infiniteTransition.animateFloat(
+        initialValue = 0.025f,
+        targetValue = 0.055f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 3000, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "hud_ambient_pulse"
+    )
+
+    Canvas(modifier = modifier.fillMaxSize()) {
+        val width = size.width
+        val height = size.height
+        if (width <= 0f || height <= 0f) return@Canvas
+
+        val spacingPx = lineSpacing.toPx()
+        val phaseOffset = rollPhase * spacingPx
+        val totalLines = (height / spacingPx).toInt() + 1
+
+        // 1. Continuous subtle horizontal scanlines
+        for (i in 0..totalLines) {
+            val y = (i * spacingPx + phaseOffset) % height
+            drawLine(
+                color = scanColor.copy(alpha = 0.035f),
+                start = Offset(0f, y),
+                end = Offset(width, y),
+                strokeWidth = 1.dp.toPx()
+            )
+        }
+
+        // 2. Sweeping glowing laser beam
+        val beamY = scanProgress * height
+        val beamHeight = 50.dp.toPx()
+
+        val beamBrush = Brush.verticalGradient(
+            colors = listOf(
+                Color.Transparent,
+                scanColor.copy(alpha = 0.03f),
+                scanColor.copy(alpha = 0.16f),
+                Color.White.copy(alpha = 0.35f),
+                scanColor.copy(alpha = 0.16f),
+                scanColor.copy(alpha = 0.03f),
+                Color.Transparent
+            ),
+            startY = beamY - (beamHeight / 2),
+            endY = beamY + (beamHeight / 2)
+        )
+
+        drawRect(
+            brush = beamBrush,
+            topLeft = Offset(0f, beamY - (beamHeight / 2)),
+            size = Size(width, beamHeight)
+        )
+
+        // Core bright laser line
+        drawLine(
+            color = Color.White.copy(alpha = 0.55f),
+            start = Offset(0f, beamY),
+            end = Offset(width, beamY),
+            strokeWidth = 1.dp.toPx()
+        )
+
+        // Subtle side alignment ticks along the sweeping beam
+        drawCircle(
+            color = beamColor.copy(alpha = 0.8f),
+            radius = 2.dp.toPx(),
+            center = Offset(10.dp.toPx(), beamY)
+        )
+        drawCircle(
+            color = beamColor.copy(alpha = 0.8f),
+            radius = 2.dp.toPx(),
+            center = Offset(width - 10.dp.toPx(), beamY)
+        )
+
+        // 3. Corner targeting brackets for authentic Iron Man HUD feel
+        if (showCornerBrackets) {
+            val bracketLen = 16.dp.toPx()
+            val bracketStroke = 1.2.dp.toPx()
+            val bracketColor = scanColor.copy(alpha = ambientPulse * 12f)
+            val padding = 8.dp.toPx()
+
+            // Top-Left ┌
+            drawLine(bracketColor, Offset(padding, padding), Offset(padding + bracketLen, padding), bracketStroke)
+            drawLine(bracketColor, Offset(padding, padding), Offset(padding, padding + bracketLen), bracketStroke)
+
+            // Top-Right ┐
+            drawLine(bracketColor, Offset(width - padding, padding), Offset(width - padding - bracketLen, padding), bracketStroke)
+            drawLine(bracketColor, Offset(width - padding, padding), Offset(width - padding, padding + bracketLen), bracketStroke)
+
+            // Bottom-Left └
+            drawLine(bracketColor, Offset(padding, height - padding), Offset(padding + bracketLen, height - padding), bracketStroke)
+            drawLine(bracketColor, Offset(padding, height - padding), Offset(padding, height - padding - bracketLen), bracketStroke)
+
+            // Bottom-Right ┘
+            drawLine(bracketColor, Offset(width - padding, height - padding), Offset(width - padding - bracketLen, height - padding), bracketStroke)
+            drawLine(bracketColor, Offset(width - padding, height - padding), Offset(width - padding, padding + bracketLen), bracketStroke)
+        }
+    }
+}
+
+/**
  * Modifier to draw Stark-style cybernetic targeting brackets ([  ]) on the four corners of a component.
  */
 fun Modifier.cyberCornerReticles(

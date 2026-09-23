@@ -2,6 +2,8 @@ package com.example.data
 
 import com.example.data.local.ChatDao
 import com.example.data.local.ChatMessageEntity
+import com.example.data.local.DirectiveDao
+import com.example.data.local.DirectiveItemEntity
 import com.example.data.local.NoteDao
 import com.example.data.local.NoteEntity
 import com.example.data.local.ReminderDao
@@ -14,12 +16,25 @@ class JarvisRepository(
     private val chatDao: ChatDao,
     private val noteDao: NoteDao,
     private val todoDao: TodoDao,
-    private val reminderDao: ReminderDao
+    private val reminderDao: ReminderDao,
+    private val directiveDao: DirectiveDao
 ) {
+    // General Directives & Dynamic Vault
+    val allDirectives: Flow<List<DirectiveItemEntity>> = directiveDao.getAllItems()
+    suspend fun insertDirective(item: DirectiveItemEntity): Long = directiveDao.insertItem(item)
+    suspend fun updateDirective(item: DirectiveItemEntity) = directiveDao.updateItem(item)
+    suspend fun deleteDirective(item: DirectiveItemEntity) = directiveDao.deleteItem(item)
+    suspend fun deleteDirectiveById(id: Long) = directiveDao.deleteById(id)
+    suspend fun toggleDirectiveCompletion(id: Long, completed: Boolean) = directiveDao.setCompleted(id, completed)
+    suspend fun searchDirectives(query: String): List<DirectiveItemEntity> = directiveDao.searchItems(query)
+    suspend fun getDirectivesByType(type: String): List<DirectiveItemEntity> = directiveDao.getDirectivesByType(type)
+    suspend fun getRecentDirectives(limit: Int = 10): List<DirectiveItemEntity> = directiveDao.getRecentItems(limit)
+
     // Chat & Conversation Memory
     val allMessages: Flow<List<ChatMessageEntity>> = chatDao.getAllMessages()
     suspend fun insertMessage(message: ChatMessageEntity): Long = chatDao.insertMessage(message)
     suspend fun clearHistory() = chatDao.clearHistory()
+    suspend fun clearChatHistory() = chatDao.clearHistory()
     suspend fun getRecentMessages(limit: Int = 10): List<ChatMessageEntity> = chatDao.getRecentMessages(limit)
 
     // Notes

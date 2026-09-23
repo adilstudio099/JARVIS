@@ -15,6 +15,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -67,8 +68,14 @@ import com.example.ui.theme.JarvisBorderCyan
 import com.example.ui.theme.JarvisBorderGlow
 import com.example.ui.theme.JarvisCyan
 import com.example.ui.theme.JarvisCyanBright
+import com.example.ui.theme.JarvisCyanDark
+import com.example.ui.theme.JarvisCyanGlow
 import com.example.ui.theme.JarvisGold
 import com.example.ui.theme.JarvisGreen
+import com.example.ui.theme.JarvisGreenBright
+import com.example.ui.theme.JarvisGreenDark
+import com.example.ui.theme.JarvisGreenDeep
+import com.example.ui.theme.JarvisGreenGlow
 import com.example.ui.theme.JarvisNeonTeal
 import com.example.ui.theme.JarvisOrange
 import com.example.ui.theme.JarvisRed
@@ -224,8 +231,8 @@ fun CyberGlowingMicButton(
         label = "mic_halo_alpha"
     )
 
-    val activeColor = if (isListening) JarvisRed else JarvisCyan
-    val dynamicAudioScale = if (isListening) (1f + rmsLevel * 0.15f) else breathingPulse
+    val activeColor = if (isListening) JarvisCyanGlow else JarvisCyan
+    val dynamicAudioScale = if (isListening) (1f + rmsLevel * 0.18f) else breathingPulse
 
     Box(
         modifier = modifier
@@ -281,12 +288,12 @@ fun CyberGlowingMicButton(
                 .clip(CircleShape)
                 .background(
                     Brush.radialGradient(
-                        colors = if (isListening) listOf(Color(0xFFFF4D4D), JarvisRed, Color(0xFF990000))
+                        colors = if (isListening) listOf(Color(0xFFE0F2FE), JarvisCyanGlow, JarvisCyanDark)
                         else listOf(JarvisCyanBright, JarvisCyan, JarvisSurfaceElevated)
                     )
                 )
                 .border(
-                    BorderStroke(1.5.dp, if (isListening) Color.White else JarvisCyanBright),
+                    BorderStroke(1.5.dp, if (isListening) Color.White else JarvisCyanGlow),
                     shape = CircleShape
                 )
                 .clickable(
@@ -299,7 +306,7 @@ fun CyberGlowingMicButton(
             Icon(
                 imageVector = if (isListening) Icons.Default.MicOff else Icons.Default.Mic,
                 contentDescription = if (isListening) "Stop Listening" else "Start Voice Command",
-                tint = if (isListening) Color.White else JarvisSpaceBlack,
+                tint = if (isListening) JarvisSpaceBlack else JarvisSpaceBlack,
                 modifier = Modifier.size(24.dp)
             )
         }
@@ -521,3 +528,76 @@ fun SystemTelemetryHeader(
         }
     }
 }
+
+/**
+ * Fine technical grid-line pattern subtly visible across the background (like graph paper / circuit-board grid).
+ * Drawn with high precision and low opacity so Urdu and English text remain 100% readable.
+ */
+@Composable
+fun HudTechnicalGridBackground(
+    modifier: Modifier = Modifier,
+    gridSpacingDp: Dp = 24.dp,
+    content: @Composable BoxScope.() -> Unit
+) {
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .background(JarvisSpaceBlack)
+    ) {
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            val step = gridSpacingDp.toPx()
+            val w = size.width
+            val h = size.height
+
+            // Fine vertical grid lines
+            var x = 0f
+            while (x <= w) {
+                drawLine(
+                    color = Color(0x1400E5FF),
+                    start = Offset(x, 0f),
+                    end = Offset(x, h),
+                    strokeWidth = 0.75.dp.toPx()
+                )
+                x += step
+            }
+
+            // Fine horizontal grid lines
+            var y = 0f
+            while (y <= h) {
+                drawLine(
+                    color = Color(0x1400E5FF),
+                    start = Offset(0f, y),
+                    end = Offset(w, y),
+                    strokeWidth = 0.75.dp.toPx()
+                )
+                y += step
+            }
+
+            // Subtle crosshairs at major technical intersections
+            val majorStep = step * 4
+            var cx = majorStep
+            while (cx < w) {
+                var cy = majorStep
+                while (cy < h) {
+                    val tick = 3.dp.toPx()
+                    drawLine(
+                        color = Color(0x3300F0FF),
+                        start = Offset(cx - tick, cy),
+                        end = Offset(cx + tick, cy),
+                        strokeWidth = 1.dp.toPx()
+                    )
+                    drawLine(
+                        color = Color(0x3300F0FF),
+                        start = Offset(cx, cy - tick),
+                        end = Offset(cx, cy + tick),
+                        strokeWidth = 1.dp.toPx()
+                    )
+                    cy += majorStep
+                }
+                cx += majorStep
+            }
+        }
+        content()
+    }
+}
+

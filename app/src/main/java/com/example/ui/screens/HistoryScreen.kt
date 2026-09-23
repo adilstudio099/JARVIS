@@ -47,6 +47,7 @@ import com.example.ui.JarvisViewModel
 import com.example.ui.components.CyberDecryptedText
 import com.example.ui.components.HudCard
 import com.example.ui.components.HudScanOverlay
+import com.example.ui.components.HudTechnicalGridBackground
 import com.example.ui.components.ToolBadge
 import com.example.ui.theme.JarvisCyan
 import com.example.ui.theme.JarvisCyanBright
@@ -72,10 +73,8 @@ fun HistoryScreen(
 
     var showClearConfirm by remember { mutableStateOf(false) }
 
-    Box(
-        modifier = modifier
-            .fillMaxSize()
-            .background(JarvisSpaceBlack)
+    HudTechnicalGridBackground(
+        modifier = modifier.fillMaxSize()
     ) {
         // Holographic HUD Scan Overlay
         HudScanOverlay(
@@ -249,6 +248,41 @@ fun HistoryScreen(
                         Text("Cancel", color = JarvisTextSecondary)
                     }
                 }
+            )
+        }
+    }
+}
+
+@Composable
+fun EmptyHudState(message: String) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(24.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Default.History,
+                contentDescription = null,
+                tint = JarvisCyan.copy(alpha = 0.4f),
+                modifier = Modifier.size(48.dp)
+            )
+            Text(
+                text = "NO LOGS RECORDED",
+                color = JarvisCyan,
+                fontSize = 13.sp,
+                fontFamily = FontFamily.Monospace,
+                fontWeight = FontWeight.Bold
+            )
+            Text(
+                text = message,
+                color = JarvisTextMuted,
+                fontSize = 12.sp,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center
             )
         }
     }
